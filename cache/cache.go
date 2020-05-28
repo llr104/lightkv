@@ -89,6 +89,8 @@ func (s*Cache) Put(key string, v interface{}, expire int64 ) {
 	}
 	s.mutex.Unlock()
 
+	fmt.Printf("put key:%s, value:%v, expire:%d\n", key, v, expire)
+
 	item := cacheItem{key:key, value:val}
 	op := persistentOp{item:item, opType:Add}
 	s.persistentChan <- op
@@ -102,11 +104,14 @@ func (s *Cache) Get(key string) (interface{}, bool) {
 	if ok{
 		t := time.Now().UnixNano()
 		if v.Expire != ExpireForever && v.Expire <= t{
+			fmt.Printf("get key:%s, not found \n", key)
 			return nil, false
 		}else{
+			fmt.Printf("get key:%s, value: %v \n", key, v.Data)
 			return v.Data, true
 		}
 	}else{
+		fmt.Printf("get key:%s, not found \n", key)
 		return nil, false
 	}
 }
@@ -118,6 +123,9 @@ func (s *Cache) Delete (key string) {
 }
 
 func (s *Cache) del(key string) {
+
+	fmt.Printf("del key:%s\n", key)
+
 	delete(s.caches, key)
 	item := cacheItem{key:key, value:cacheValue{Expire:ExpireForever, Data:nil}}
 	op := persistentOp{item:item, opType:Del}
@@ -132,7 +140,6 @@ func (s *Cache) checkExpire() {
 		for k, v := range s.caches  {
 			if v.Expire != ExpireForever && v.Expire <= t{
 				s.del(k)
-				//fmt.Printf("checkExpire delete: %s\n", k)
 			}
 		}
 		s.mutex.Unlock()
