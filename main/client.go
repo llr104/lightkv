@@ -6,6 +6,7 @@ import (
 	"google.golang.org/grpc"
 	"lightkv/pb"
 	"log"
+	"time"
 )
 
 
@@ -18,10 +19,20 @@ func main() {
 
 	defer conn.Close()
 
-	t1 := bridge.NewRpcBridgeClient(conn)
-	tr1, err := t1.Ping(context.Background(), &bridge.PingReq{Timestamp:0})
-	if err != nil {
-		log.Fatalf("could not greet: %v", err)
+	go func() {
+		t1 := bridge.NewRpcBridgeClient(conn)
+		for {
+			time.Sleep(1*time.Second/2)
+			
+			tr1, err := t1.Ping(context.Background(), &bridge.PingReq{Timestamp:0})
+			if err != nil {
+				log.Fatalf("could not greet: %v", err)
+			}
+			log.Printf("服务端响应: %d", tr1.Timestamp)
+		}
+	}()
+
+	select {
 	}
-	log.Printf("服务端响应: %d", tr1.Timestamp)
+
 }
