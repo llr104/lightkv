@@ -1,0 +1,14 @@
+  syntax = "proto3";
+  package bridge;
+  
+  service RpcBridge {
+    rpc Ping (PingReq) returns (PingRsp) {}
+  }
+
+  message PingReq {
+    int64 timestamp = 1;
+  }
+
+  message PingRsp {
+    int64 timestamp = 1;
+  }
