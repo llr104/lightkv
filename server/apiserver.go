@@ -1,4 +1,4 @@
-package main
+package server
 
 import (
 	"encoding/json"
@@ -14,10 +14,9 @@ const Push = "/put"
 const Delete = "/del/"
 const Dump = "/dump"
 
-type httpServer struct {
-	cache* cache.Cache
+type apiServer struct {
+	cache * cache.Cache
 }
-
 
 type Rsp struct {
 	Success bool 		`json:"success"`
@@ -25,7 +24,17 @@ type Rsp struct {
 	Value   interface{}	`json:"value"`
 }
 
-func (s *httpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func NewApi(c *cache.Cache) *apiServer {
+	h := apiServer{cache: c}
+	return &h
+}
+
+func (s *apiServer) Start()  {
+	fmt.Println(http.ListenAndServe(":9981", s))
+}
+
+
+func (s *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	vars := r.URL.Query()
 	pathLower := strings.ToLower(r.URL.Path)
 	if strings.HasPrefix(pathLower, Get) {
@@ -38,7 +47,7 @@ func (s *httpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}else{
 			v, ok := s.cache.Get(parts[0])
 			if ok {
-				r := Rsp{Key: parts[0], Value:v, Success:true}
+				r := Rsp{Key: parts[0], Value:string(v), Success:true}
 				data, _ := json.Marshal(r)
 				w.Write(data)
 			}else{
@@ -73,12 +82,12 @@ func (s *httpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if ok3{
 			int64, err := strconv.ParseInt(expire[0], 10, 64)
 			if err == nil{
-				s.cache.Put(key[0], value[0], int64)
+				s.cache.Put(key[0], []byte(value[0]), int64)
 			}else{
-				s.cache.Put(key[0], value[0], cache.ExpireForever)
+				s.cache.Put(key[0], []byte(value[0]), cache.ExpireForever)
 			}
 		}else{
-			s.cache.Put(key[0], value[0], cache.ExpireForever)
+			s.cache.Put(key[0], []byte(value[0]), cache.ExpireForever)
 		}
 		r := Rsp{Key: key[0], Value:value[0], Success:true}
 		data, _ := json.Marshal(r)
@@ -109,7 +118,4 @@ func (s *httpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func main() {
-	h := httpServer{cache:cache.NewCache(15)}
-	fmt.Println(http.ListenAndServe(":9981", &h))
-}
+

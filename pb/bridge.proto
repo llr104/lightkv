@@ -3,6 +3,9 @@
   
   service RpcBridge {
     rpc Ping (PingReq) returns (PingRsp) {}
+    rpc Get (GetReq) returns (GetRsp) {}
+    rpc Put (PutReq) returns (PutRsp) {}
+    rpc Del (DelReq) returns (DelRsp) {}
   }
 
   message PingReq {
@@ -12,3 +15,31 @@
   message PingRsp {
     int64 timestamp = 1;
   }
+
+message GetReq {
+   string key = 1;
+}
+
+message GetRsp {
+   string key = 1;
+   bytes value = 2;
+}
+
+message PutReq {
+   string key = 1;
+   bytes value = 2;
+   int64 expire = 3;
+}
+
+message PutRsp {
+   string key = 1;
+   bytes value = 2;
+}
+
+message DelReq {
+   string key = 1;
+}
+
+message DelRsp {
+   string key = 1;
+}

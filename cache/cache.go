@@ -1,9 +1,8 @@
 package cache
 
 import (
-	"encoding/json"
+	"encoding/gob"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -65,18 +64,23 @@ func (s *Cache) loadDB()  {
 			return nil
 		}
 
-		if data, err := ioutil.ReadFile(path); err == nil {
-			var v cacheValue
-			json.Unmarshal(data, &v)
-			s.caches[f.Name()] = v
-		}
+		 var v cacheValue
+		 if file, err := os.Open(path); err != nil {
+			 fmt.Println(err)
+		 }else {
+			 dec := gob.NewDecoder(file)
+			 if err := dec.Decode(&v); err == nil{
+				 s.caches[f.Name()] = v
+			 }
+		 }
+
 		return nil
 	})
 
 	fmt.Printf("load db finish, %d key-cacheValue \n", len(s.caches))
 }
 
-func (s*Cache) Put(key string, v interface{}, expire int64 ) {
+func (s*Cache) Put(key string, v []byte, expire int64 ) {
 	s.mutex.Lock()
 	var val cacheValue
 	if expire == ExpireForever {
@@ -97,7 +101,7 @@ func (s*Cache) Put(key string, v interface{}, expire int64 ) {
 
 }
 
-func (s *Cache) Get(key string) (interface{}, bool) {
+func (s *Cache) Get(key string) ([]byte, bool) {
 	s.mutex.RLock()
 	v, ok := s.caches[key]
 	s.mutex.RUnlock()
@@ -161,14 +165,12 @@ func (s *Cache) persistent()  {
 }
 
 func (s *Cache) saveKV(key string, v cacheValue) {
-
-	data, err := json.Marshal(v)
-	if err == nil{
-		err := ioutil.WriteFile(DefaultDBPath +"/" + key, data, os.ModePerm)
-		if err != nil{
-			fmt.Println(err)
-		}
+	file, err := os.Create(DefaultDBPath +"/" + key)
+	if err != nil {
+		fmt.Println(err)
 	}
+	enc := gob.NewEncoder(file)
+	enc.Encode(v)
 }
 
 func (s *Cache) delKV(key string)  {
