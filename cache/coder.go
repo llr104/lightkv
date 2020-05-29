@@ -6,6 +6,7 @@ import (
 )
 
 func encode(value cacheValue) [] byte{
+
 	e := value.Expire
 	d := value.Data
 	l := int32(len(d))

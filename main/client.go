@@ -37,6 +37,8 @@ func main() {
 	r, _ := t1.Get(context.Background(), &bridge.GetReq{Key:"k1"})
 	log.Printf("get k1:%v\n",r)
 
+	t1.Put(context.Background(), &bridge.PutReq{Key:"keyRpc",  Value:[]byte("rpcPush"), Expire:0})
+
 	select {
 	}
 

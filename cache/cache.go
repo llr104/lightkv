@@ -5,9 +5,32 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 )
+
+func isExist(path string) bool {
+	_, err := os.Stat(path) //os.Stat获取文件信息
+	if err != nil {
+		if os.IsExist(err) {
+			return true
+		}
+		return false
+	}
+	return true
+}
+
+func createDir(path string) error {
+	if !isExist(path) {
+		err := os.MkdirAll(path, os.ModePerm)
+		if err != nil {
+			return err
+		}
+		return err
+	}
+	return nil
+}
 
 type cacheItem struct {
 	key   string
@@ -68,7 +91,10 @@ func (s *Cache) loadDB()  {
 			 fmt.Println(err)
 		 }else {
 		 	 v := decode(data)
-			 s.caches[f.Name()] = v
+		 	 p := filepath.ToSlash(path)
+		 	 arr := strings.Split(p, "/")
+		 	 name := strings.Join(arr[1:], "/")
+			 s.caches[name] = v
 		 }
 
 		return nil
@@ -163,11 +189,21 @@ func (s *Cache) persistent()  {
 
 func (s *Cache) saveKV(key string, v cacheValue) {
 	b := encode(v)
-	ioutil.WriteFile(DefaultDBPath +"/" + key, b, os.ModePerm)
+
+	fullPath := filepath.Join(DefaultDBPath, key)
+	path, _ := filepath.Split(fullPath)
+
+	createDir(path)
+
+	err := ioutil.WriteFile(fullPath, b, os.ModePerm)
+	if err != nil{
+		fmt.Printf("saveKV error:%s\n", err.Error())
+	}
 }
 
 func (s *Cache) delKV(key string)  {
-	os.Remove(DefaultDBPath +"/" + key)
+	fullPath := filepath.Join(DefaultDBPath, key)
+	os.Remove(fullPath)
 }
 
 func (s *Cache) All() map[string]cacheValue {
@@ -175,3 +211,4 @@ func (s *Cache) All() map[string]cacheValue {
 	defer s.mutex.Unlock()
 	return s.caches
 }
+
