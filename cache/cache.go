@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"encoding/gob"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sync"
@@ -64,14 +64,11 @@ func (s *Cache) loadDB()  {
 			return nil
 		}
 
-		 var v cacheValue
-		 if file, err := os.Open(path); err != nil {
+		 if data, err := ioutil.ReadFile(path); err != nil {
 			 fmt.Println(err)
 		 }else {
-			 dec := gob.NewDecoder(file)
-			 if err := dec.Decode(&v); err == nil{
-				 s.caches[f.Name()] = v
-			 }
+		 	 v := decode(data)
+			 s.caches[f.Name()] = v
 		 }
 
 		return nil
@@ -165,12 +162,8 @@ func (s *Cache) persistent()  {
 }
 
 func (s *Cache) saveKV(key string, v cacheValue) {
-	file, err := os.Create(DefaultDBPath +"/" + key)
-	if err != nil {
-		fmt.Println(err)
-	}
-	enc := gob.NewEncoder(file)
-	enc.Encode(v)
+	b := encode(v)
+	ioutil.WriteFile(DefaultDBPath +"/" + key, b, os.ModePerm)
 }
 
 func (s *Cache) delKV(key string)  {
