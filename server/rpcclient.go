@@ -4,19 +4,23 @@ import (
 	"fmt"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"lightkv/cache"
 	bridge "lightkv/pb"
 	"log"
+	"sync"
 	"time"
 )
 
 type rpcClient struct {
 	c bridge.RpcBridgeClient
 	conn *grpc.ClientConn
+	mutex sync.Mutex
+	watchMap map[string]func(string, string, cache.OpType)
 }
 
 func NewClient() *rpcClient{
 
-	s := rpcClient{}
+	s := rpcClient{watchMap:make(map[string]func(string, string, cache.OpType))}
 
 	conn, err := grpc.Dial("127.0.0.1:9980", grpc.WithInsecure())
 	if err != nil {
@@ -60,8 +64,15 @@ func (s*rpcClient) Start() {
 					//log.Printf("err:%s\n", err.Error())
 				}else{
 					log.Printf("%s,%s,%d\n", data.Key, data.Value, data.Type)
+					s.mutex.Lock()
+					f, ok := s.watchMap[data.Key]
+					if ok {
+						f(data.Key, data.Value, cache.OpType(data.Type))
+					}
+
+					s.mutex.Unlock()
 				}
-				time.Sleep(time.Second*1)
+				time.Sleep(time.Second/100)
 			}
 		}()
 	}
@@ -96,11 +107,16 @@ func (s*rpcClient) Del(key string) {
 	}
 }
 
-func (s*rpcClient) WatchKey(key string) {
+func (s*rpcClient) WatchKey(key string, watchFunc func(string, string, cache.OpType)) {
 	_, err := s.c.WatchKey(context.Background(), &bridge.WatchReq{Key: key})
 	if err != nil{
 		fmt.Printf("WatchKey error: %s\n", err.Error())
+	}else{
+		s.mutex.Lock()
+		s.watchMap[key] = watchFunc
+		s.mutex.Unlock()
 	}
+
 }
 
 func (s*rpcClient) UnWatchKey(key string) {
@@ -108,6 +124,10 @@ func (s*rpcClient) UnWatchKey(key string) {
 	if err != nil{
 		fmt.Printf("UnWatchKey error: %s\n", err.Error())
 	}
+
+	s.mutex.Lock()
+	delete(s.watchMap, key)
+	s.mutex.Unlock()
 }
 
 

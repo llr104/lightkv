@@ -4,6 +4,7 @@ package main
 import (
 	"fmt"
 	_ "fmt"
+	"lightkv/cache"
 	"lightkv/server"
 	"time"
 )
@@ -21,8 +22,15 @@ func main() {
 	v := c.Get("test2")
 	fmt.Printf("test2:%s\n", v)
 
-	c.WatchKey("watch1")
-	c.WatchKey("unwatch")
+	c.WatchKey("watch1", func(k string, v string, t cache.OpType) {
+		fmt.Printf("watch key:%s, value:%s, type:%d\n", k, v, t)
+	})
+
+	c.WatchKey("unwatch", func(k string, v string, t cache.OpType) {
+		fmt.Printf("watch key:%s, value:%s, type:%d\n", k, v, t)
+	})
+
+	time.Sleep(time.Second*10)
 	c.UnWatchKey("unwatch")
 
 	time.Sleep(time.Second*10)

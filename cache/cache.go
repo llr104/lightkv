@@ -36,7 +36,7 @@ type Item struct {
 	Value value
 }
 
-type OpType int
+type OpType int32
 
 const (
 	Add = 0
@@ -172,7 +172,7 @@ func (s *Cache) del(key string) {
 		s.persistentChan <- op
 
 		if s.opFunction != nil{
-			s.opFunction(Add, item)
+			s.opFunction(Del, item)
 		}
 	}
 
