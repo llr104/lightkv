@@ -9,16 +9,16 @@ go run main/server.go
   
 默认会启动一个api(http://localhost:9981)服和一个rpc服(9980端口)
 
-http://127.0.0.1:9981/put?key=add1&value=addvalue1
+http://localhost:9981/put?key=add1&value=addvalue1
 api新增一条kv，key为add1,value为addvalue1，kv不过期 
 
-http://127.0.0.1:9981/put?key=add2&value=addvalue2&expire=100
+http://localhost:9981/put?key=add2&value=addvalue2&expire=100
 api新增一条kv，key为add2,value为addvalue2，100秒后kv过期
 
-http://127.0.0.1:9981/del/add2
+http://localhost:9981/del/add2
 api删除key为add2的kv
 
-http://127.0.0.1:9981/get/add1
+http://localhost:9981/get/add1
 api获取key为add1的kv
 
 
