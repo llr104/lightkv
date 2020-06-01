@@ -32,12 +32,12 @@ func createDir(path string) error {
 	return nil
 }
 
-type cacheItem struct {
-	key   string
-	value cacheValue
+type Item struct {
+	Key   string
+	Value value
 }
 
-type opType int
+type OpType int
 
 const (
 	Add = 0
@@ -45,14 +45,15 @@ const (
 )
 
 type persistentOp struct {
-	item   cacheItem
-	opType opType
+	item   Item
+	opType OpType
 }
 
 type Cache struct{
-	caches map[string]cacheValue
+	caches map[string]value
 	checkExpireInterval int
 	persistentChan chan persistentOp
+	opFunction func(OpType, Item)
 	mutex sync.RWMutex
 }
 
@@ -61,9 +62,10 @@ const DefaultDBPath = "db"
 
 func NewCache(checkExpireInterval int) *Cache {
 	 c := Cache{
-	 	caches: make(map[string]cacheValue),
+	 	caches: make(map[string]value),
 	 	checkExpireInterval:checkExpireInterval,
 	 	persistentChan:make(chan persistentOp),
+	 	opFunction:nil,
 	 }
 	 c.init()
 	 return &c
@@ -100,25 +102,38 @@ func (s *Cache) loadDB()  {
 		return nil
 	})
 
-	fmt.Printf("load db finish, %d key-cacheValue \n", len(s.caches))
+	fmt.Printf("load db finish, %d Key-cacheValue \n", len(s.caches))
+}
+
+func (s*Cache) SetOnOP(opFunc func(OpType, Item)) {
+	s.opFunction = opFunc
 }
 
 func (s*Cache) Put(key string, v []byte, expire int64 ) {
 	s.mutex.Lock()
-	var val cacheValue
+	var val value
 	if expire == ExpireForever {
-		val = cacheValue{Data: v, Expire:ExpireForever}
+		val = value{Data: v, Expire:ExpireForever}
 		s.caches[key] = val
+
+		item := Item{Key: key, Value:val}
+		if s.opFunction != nil{
+			s.opFunction(Add, item)
+		}
 	}else{
 		e := time.Now().UnixNano() + expire*int64(time.Second)
-		val = cacheValue{Data: v, Expire:e}
+		val = value{Data: v, Expire:e}
 		s.caches[key] = val
+		item := Item{Key: key, Value:val}
+		if s.opFunction != nil{
+			s.opFunction(Add, item)
+		}
 	}
 	s.mutex.Unlock()
 
-	fmt.Printf("put key:%s, value:%v, expire:%d\n", key, v, expire)
+	fmt.Printf("put Key:%s, Value:%v, expire:%d\n", key, v, expire)
 
-	item := cacheItem{key:key, value:val}
+	item := Item{Key: key, Value:val}
 	op := persistentOp{item:item, opType:Add}
 	s.persistentChan <- op
 
@@ -131,14 +146,14 @@ func (s *Cache) Get(key string) ([]byte, bool) {
 	if ok{
 		t := time.Now().UnixNano()
 		if v.Expire != ExpireForever && v.Expire <= t{
-			fmt.Printf("get key:%s, not found \n", key)
+			fmt.Printf("get Key:%s, not found \n", key)
 			return nil, false
 		}else{
-			fmt.Printf("get key:%s, value: %v \n", key, v.Data)
+			fmt.Printf("get Key:%s, Value: %v \n", key, v.Data)
 			return v.Data, true
 		}
 	}else{
-		fmt.Printf("get key:%s, not found \n", key)
+		fmt.Printf("get Key:%s, not found \n", key)
 		return nil, false
 	}
 }
@@ -151,12 +166,21 @@ func (s *Cache) Delete (key string) {
 
 func (s *Cache) del(key string) {
 
-	fmt.Printf("del key:%s\n", key)
+	fmt.Printf("del Key:%s\n", key)
+	_, ok := s.caches[key]
+	if ok{
+		delete(s.caches, key)
+		val := value{Expire: ExpireForever, Data:nil}
+		item := Item{Key: key, Value:val}
+		op := persistentOp{item:item, opType:Del}
+		s.persistentChan <- op
 
-	delete(s.caches, key)
-	item := cacheItem{key:key, value:cacheValue{Expire:ExpireForever, Data:nil}}
-	op := persistentOp{item:item, opType:Del}
-	s.persistentChan <- op
+		if s.opFunction != nil{
+			s.opFunction(Add, item)
+		}
+	}
+
+
 }
 
 func (s *Cache) checkExpire() {
@@ -178,16 +202,16 @@ func (s *Cache) persistent()  {
 		select {
 			case op := <-s.persistentChan:
 				if op.opType == Add {
-					s.saveKV(op.item.key, op.item.value)
+					s.saveKV(op.item.Key, op.item.Value)
 				}else if op.opType == Del{
-					s.delKV(op.item.key)
+					s.delKV(op.item.Key)
 				}
 			}
 	}
 
 }
 
-func (s *Cache) saveKV(key string, v cacheValue) {
+func (s *Cache) saveKV(key string, v value) {
 	b := encode(v)
 
 	fullPath := filepath.Join(DefaultDBPath, key)
@@ -206,7 +230,7 @@ func (s *Cache) delKV(key string)  {
 	os.Remove(fullPath)
 }
 
-func (s *Cache) All() map[string]cacheValue {
+func (s *Cache) All() map[string]value {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	return s.caches

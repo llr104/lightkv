@@ -437,6 +437,210 @@ func (x *DelRsp) GetKey() string {
 	return ""
 }
 
+type PublishReq struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+}
+
+func (x *PublishReq) Reset() {
+	*x = PublishReq{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_bridge_proto_msgTypes[8]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PublishReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishReq) ProtoMessage() {}
+
+func (x *PublishReq) ProtoReflect() protoreflect.Message {
+	mi := &file_bridge_proto_msgTypes[8]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishReq.ProtoReflect.Descriptor instead.
+func (*PublishReq) Descriptor() ([]byte, []int) {
+	return file_bridge_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *PublishReq) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+type PublishRsp struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value []byte `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Type  int32  `protobuf:"varint,3,opt,name=type,proto3" json:"type,omitempty"`
+}
+
+func (x *PublishRsp) Reset() {
+	*x = PublishRsp{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_bridge_proto_msgTypes[9]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *PublishRsp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PublishRsp) ProtoMessage() {}
+
+func (x *PublishRsp) ProtoReflect() protoreflect.Message {
+	mi := &file_bridge_proto_msgTypes[9]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PublishRsp.ProtoReflect.Descriptor instead.
+func (*PublishRsp) Descriptor() ([]byte, []int) {
+	return file_bridge_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *PublishRsp) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *PublishRsp) GetValue() []byte {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+func (x *PublishRsp) GetType() int32 {
+	if x != nil {
+		return x.Type
+	}
+	return 0
+}
+
+type WatchReq struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+}
+
+func (x *WatchReq) Reset() {
+	*x = WatchReq{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_bridge_proto_msgTypes[10]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *WatchReq) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WatchReq) ProtoMessage() {}
+
+func (x *WatchReq) ProtoReflect() protoreflect.Message {
+	mi := &file_bridge_proto_msgTypes[10]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WatchReq.ProtoReflect.Descriptor instead.
+func (*WatchReq) Descriptor() ([]byte, []int) {
+	return file_bridge_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *WatchReq) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+type WatchRsp struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+}
+
+func (x *WatchRsp) Reset() {
+	*x = WatchRsp{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_bridge_proto_msgTypes[11]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *WatchRsp) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WatchRsp) ProtoMessage() {}
+
+func (x *WatchRsp) ProtoReflect() protoreflect.Message {
+	mi := &file_bridge_proto_msgTypes[11]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WatchRsp.ProtoReflect.Descriptor instead.
+func (*WatchRsp) Descriptor() ([]byte, []int) {
+	return file_bridge_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *WatchRsp) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
 var File_bridge_proto protoreflect.FileDescriptor
 
 var file_bridge_proto_rawDesc = []byte{
@@ -462,19 +666,39 @@ var file_bridge_proto_rawDesc = []byte{
 	0x75, 0x65, 0x22, 0x1a, 0x0a, 0x06, 0x44, 0x65, 0x6c, 0x52, 0x65, 0x71, 0x12, 0x10, 0x0a, 0x03,
 	0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x22, 0x1a,
 	0x0a, 0x06, 0x44, 0x65, 0x6c, 0x52, 0x73, 0x70, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18,
-	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x32, 0xb2, 0x01, 0x0a, 0x09, 0x52,
-	0x70, 0x63, 0x42, 0x72, 0x69, 0x64, 0x67, 0x65, 0x12, 0x2a, 0x0a, 0x04, 0x50, 0x69, 0x6e, 0x67,
-	0x12, 0x0f, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x50, 0x69, 0x6e, 0x67, 0x52, 0x65,
-	0x71, 0x1a, 0x0f, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x50, 0x69, 0x6e, 0x67, 0x52,
-	0x73, 0x70, 0x22, 0x00, 0x12, 0x27, 0x0a, 0x03, 0x47, 0x65, 0x74, 0x12, 0x0e, 0x2e, 0x62, 0x72,
-	0x69, 0x64, 0x67, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x52, 0x65, 0x71, 0x1a, 0x0e, 0x2e, 0x62, 0x72,
-	0x69, 0x64, 0x67, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x52, 0x73, 0x70, 0x22, 0x00, 0x12, 0x27, 0x0a,
-	0x03, 0x50, 0x75, 0x74, 0x12, 0x0e, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x50, 0x75,
-	0x74, 0x52, 0x65, 0x71, 0x1a, 0x0e, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x50, 0x75,
-	0x74, 0x52, 0x73, 0x70, 0x22, 0x00, 0x12, 0x27, 0x0a, 0x03, 0x44, 0x65, 0x6c, 0x12, 0x0e, 0x2e,
-	0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x44, 0x65, 0x6c, 0x52, 0x65, 0x71, 0x1a, 0x0e, 0x2e,
-	0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x44, 0x65, 0x6c, 0x52, 0x73, 0x70, 0x22, 0x00, 0x62,
-	0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x22, 0x1e, 0x0a, 0x0a, 0x50, 0x75,
+	0x62, 0x6c, 0x69, 0x73, 0x68, 0x52, 0x65, 0x71, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x22, 0x48, 0x0a, 0x0a, 0x50, 0x75,
+	0x62, 0x6c, 0x69, 0x73, 0x68, 0x52, 0x73, 0x70, 0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79, 0x12, 0x14, 0x0a, 0x05, 0x76, 0x61,
+	0x6c, 0x75, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0c, 0x52, 0x05, 0x76, 0x61, 0x6c, 0x75, 0x65,
+	0x12, 0x12, 0x0a, 0x04, 0x74, 0x79, 0x70, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x05, 0x52, 0x04,
+	0x74, 0x79, 0x70, 0x65, 0x22, 0x1c, 0x0a, 0x08, 0x57, 0x61, 0x74, 0x63, 0x68, 0x52, 0x65, 0x71,
+	0x12, 0x10, 0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b,
+	0x65, 0x79, 0x22, 0x1c, 0x0a, 0x08, 0x57, 0x61, 0x74, 0x63, 0x68, 0x52, 0x73, 0x70, 0x12, 0x10,
+	0x0a, 0x03, 0x6b, 0x65, 0x79, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x6b, 0x65, 0x79,
+	0x32, 0xd1, 0x02, 0x0a, 0x09, 0x52, 0x70, 0x63, 0x42, 0x72, 0x69, 0x64, 0x67, 0x65, 0x12, 0x2a,
+	0x0a, 0x04, 0x50, 0x69, 0x6e, 0x67, 0x12, 0x0f, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e,
+	0x50, 0x69, 0x6e, 0x67, 0x52, 0x65, 0x71, 0x1a, 0x0f, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65,
+	0x2e, 0x50, 0x69, 0x6e, 0x67, 0x52, 0x73, 0x70, 0x22, 0x00, 0x12, 0x27, 0x0a, 0x03, 0x47, 0x65,
+	0x74, 0x12, 0x0e, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x52, 0x65,
+	0x71, 0x1a, 0x0e, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x47, 0x65, 0x74, 0x52, 0x73,
+	0x70, 0x22, 0x00, 0x12, 0x27, 0x0a, 0x03, 0x50, 0x75, 0x74, 0x12, 0x0e, 0x2e, 0x62, 0x72, 0x69,
+	0x64, 0x67, 0x65, 0x2e, 0x50, 0x75, 0x74, 0x52, 0x65, 0x71, 0x1a, 0x0e, 0x2e, 0x62, 0x72, 0x69,
+	0x64, 0x67, 0x65, 0x2e, 0x50, 0x75, 0x74, 0x52, 0x73, 0x70, 0x22, 0x00, 0x12, 0x27, 0x0a, 0x03,
+	0x44, 0x65, 0x6c, 0x12, 0x0e, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x44, 0x65, 0x6c,
+	0x52, 0x65, 0x71, 0x1a, 0x0e, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x44, 0x65, 0x6c,
+	0x52, 0x73, 0x70, 0x22, 0x00, 0x12, 0x37, 0x0a, 0x07, 0x50, 0x75, 0x62, 0x6c, 0x69, 0x73, 0x68,
+	0x12, 0x12, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x50, 0x75, 0x62, 0x6c, 0x69, 0x73,
+	0x68, 0x52, 0x65, 0x71, 0x1a, 0x12, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x50, 0x75,
+	0x62, 0x6c, 0x69, 0x73, 0x68, 0x52, 0x73, 0x70, 0x22, 0x00, 0x28, 0x01, 0x30, 0x01, 0x12, 0x30,
+	0x0a, 0x08, 0x57, 0x61, 0x74, 0x63, 0x68, 0x4b, 0x65, 0x79, 0x12, 0x10, 0x2e, 0x62, 0x72, 0x69,
+	0x64, 0x67, 0x65, 0x2e, 0x57, 0x61, 0x74, 0x63, 0x68, 0x52, 0x65, 0x71, 0x1a, 0x10, 0x2e, 0x62,
+	0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x57, 0x61, 0x74, 0x63, 0x68, 0x52, 0x73, 0x70, 0x22, 0x00,
+	0x12, 0x32, 0x0a, 0x0a, 0x55, 0x6e, 0x57, 0x61, 0x74, 0x63, 0x68, 0x4b, 0x65, 0x79, 0x12, 0x10,
+	0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x57, 0x61, 0x74, 0x63, 0x68, 0x52, 0x65, 0x71,
+	0x1a, 0x10, 0x2e, 0x62, 0x72, 0x69, 0x64, 0x67, 0x65, 0x2e, 0x57, 0x61, 0x74, 0x63, 0x68, 0x52,
+	0x73, 0x70, 0x22, 0x00, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -489,31 +713,41 @@ func file_bridge_proto_rawDescGZIP() []byte {
 	return file_bridge_proto_rawDescData
 }
 
-var file_bridge_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_bridge_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_bridge_proto_goTypes = []interface{}{
-	(*PingReq)(nil), // 0: bridge.PingReq
-	(*PingRsp)(nil), // 1: bridge.PingRsp
-	(*GetReq)(nil),  // 2: bridge.GetReq
-	(*GetRsp)(nil),  // 3: bridge.GetRsp
-	(*PutReq)(nil),  // 4: bridge.PutReq
-	(*PutRsp)(nil),  // 5: bridge.PutRsp
-	(*DelReq)(nil),  // 6: bridge.DelReq
-	(*DelRsp)(nil),  // 7: bridge.DelRsp
+	(*PingReq)(nil),    // 0: bridge.PingReq
+	(*PingRsp)(nil),    // 1: bridge.PingRsp
+	(*GetReq)(nil),     // 2: bridge.GetReq
+	(*GetRsp)(nil),     // 3: bridge.GetRsp
+	(*PutReq)(nil),     // 4: bridge.PutReq
+	(*PutRsp)(nil),     // 5: bridge.PutRsp
+	(*DelReq)(nil),     // 6: bridge.DelReq
+	(*DelRsp)(nil),     // 7: bridge.DelRsp
+	(*PublishReq)(nil), // 8: bridge.PublishReq
+	(*PublishRsp)(nil), // 9: bridge.PublishRsp
+	(*WatchReq)(nil),   // 10: bridge.WatchReq
+	(*WatchRsp)(nil),   // 11: bridge.WatchRsp
 }
 var file_bridge_proto_depIdxs = []int32{
-	0, // 0: bridge.RpcBridge.Ping:input_type -> bridge.PingReq
-	2, // 1: bridge.RpcBridge.Get:input_type -> bridge.GetReq
-	4, // 2: bridge.RpcBridge.Put:input_type -> bridge.PutReq
-	6, // 3: bridge.RpcBridge.Del:input_type -> bridge.DelReq
-	1, // 4: bridge.RpcBridge.Ping:output_type -> bridge.PingRsp
-	3, // 5: bridge.RpcBridge.Get:output_type -> bridge.GetRsp
-	5, // 6: bridge.RpcBridge.Put:output_type -> bridge.PutRsp
-	7, // 7: bridge.RpcBridge.Del:output_type -> bridge.DelRsp
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
-	0, // [0:0] is the sub-list for extension type_name
-	0, // [0:0] is the sub-list for extension extendee
-	0, // [0:0] is the sub-list for field type_name
+	0,  // 0: bridge.RpcBridge.Ping:input_type -> bridge.PingReq
+	2,  // 1: bridge.RpcBridge.Get:input_type -> bridge.GetReq
+	4,  // 2: bridge.RpcBridge.Put:input_type -> bridge.PutReq
+	6,  // 3: bridge.RpcBridge.Del:input_type -> bridge.DelReq
+	8,  // 4: bridge.RpcBridge.Publish:input_type -> bridge.PublishReq
+	10, // 5: bridge.RpcBridge.WatchKey:input_type -> bridge.WatchReq
+	10, // 6: bridge.RpcBridge.UnWatchKey:input_type -> bridge.WatchReq
+	1,  // 7: bridge.RpcBridge.Ping:output_type -> bridge.PingRsp
+	3,  // 8: bridge.RpcBridge.Get:output_type -> bridge.GetRsp
+	5,  // 9: bridge.RpcBridge.Put:output_type -> bridge.PutRsp
+	7,  // 10: bridge.RpcBridge.Del:output_type -> bridge.DelRsp
+	9,  // 11: bridge.RpcBridge.Publish:output_type -> bridge.PublishRsp
+	11, // 12: bridge.RpcBridge.WatchKey:output_type -> bridge.WatchRsp
+	11, // 13: bridge.RpcBridge.UnWatchKey:output_type -> bridge.WatchRsp
+	7,  // [7:14] is the sub-list for method output_type
+	0,  // [0:7] is the sub-list for method input_type
+	0,  // [0:0] is the sub-list for extension type_name
+	0,  // [0:0] is the sub-list for extension extendee
+	0,  // [0:0] is the sub-list for field type_name
 }
 
 func init() { file_bridge_proto_init() }
@@ -618,6 +852,54 @@ func file_bridge_proto_init() {
 				return nil
 			}
 		}
+		file_bridge_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PublishReq); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_bridge_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PublishRsp); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_bridge_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*WatchReq); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_bridge_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*WatchRsp); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -625,7 +907,7 @@ func file_bridge_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_bridge_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
@@ -655,6 +937,9 @@ type RpcBridgeClient interface {
 	Get(ctx context.Context, in *GetReq, opts ...grpc.CallOption) (*GetRsp, error)
 	Put(ctx context.Context, in *PutReq, opts ...grpc.CallOption) (*PutRsp, error)
 	Del(ctx context.Context, in *DelReq, opts ...grpc.CallOption) (*DelRsp, error)
+	Publish(ctx context.Context, opts ...grpc.CallOption) (RpcBridge_PublishClient, error)
+	WatchKey(ctx context.Context, in *WatchReq, opts ...grpc.CallOption) (*WatchRsp, error)
+	UnWatchKey(ctx context.Context, in *WatchReq, opts ...grpc.CallOption) (*WatchRsp, error)
 }
 
 type rpcBridgeClient struct {
@@ -701,12 +986,64 @@ func (c *rpcBridgeClient) Del(ctx context.Context, in *DelReq, opts ...grpc.Call
 	return out, nil
 }
 
+func (c *rpcBridgeClient) Publish(ctx context.Context, opts ...grpc.CallOption) (RpcBridge_PublishClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_RpcBridge_serviceDesc.Streams[0], "/bridge.RpcBridge/Publish", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &rpcBridgePublishClient{stream}
+	return x, nil
+}
+
+type RpcBridge_PublishClient interface {
+	Send(*PublishReq) error
+	Recv() (*PublishRsp, error)
+	grpc.ClientStream
+}
+
+type rpcBridgePublishClient struct {
+	grpc.ClientStream
+}
+
+func (x *rpcBridgePublishClient) Send(m *PublishReq) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *rpcBridgePublishClient) Recv() (*PublishRsp, error) {
+	m := new(PublishRsp)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *rpcBridgeClient) WatchKey(ctx context.Context, in *WatchReq, opts ...grpc.CallOption) (*WatchRsp, error) {
+	out := new(WatchRsp)
+	err := c.cc.Invoke(ctx, "/bridge.RpcBridge/WatchKey", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *rpcBridgeClient) UnWatchKey(ctx context.Context, in *WatchReq, opts ...grpc.CallOption) (*WatchRsp, error) {
+	out := new(WatchRsp)
+	err := c.cc.Invoke(ctx, "/bridge.RpcBridge/UnWatchKey", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RpcBridgeServer is the server API for RpcBridge service.
 type RpcBridgeServer interface {
 	Ping(context.Context, *PingReq) (*PingRsp, error)
 	Get(context.Context, *GetReq) (*GetRsp, error)
 	Put(context.Context, *PutReq) (*PutRsp, error)
 	Del(context.Context, *DelReq) (*DelRsp, error)
+	Publish(RpcBridge_PublishServer) error
+	WatchKey(context.Context, *WatchReq) (*WatchRsp, error)
+	UnWatchKey(context.Context, *WatchReq) (*WatchRsp, error)
 }
 
 // UnimplementedRpcBridgeServer can be embedded to have forward compatible implementations.
@@ -724,6 +1061,15 @@ func (*UnimplementedRpcBridgeServer) Put(context.Context, *PutReq) (*PutRsp, err
 }
 func (*UnimplementedRpcBridgeServer) Del(context.Context, *DelReq) (*DelRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Del not implemented")
+}
+func (*UnimplementedRpcBridgeServer) Publish(RpcBridge_PublishServer) error {
+	return status.Errorf(codes.Unimplemented, "method Publish not implemented")
+}
+func (*UnimplementedRpcBridgeServer) WatchKey(context.Context, *WatchReq) (*WatchRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method WatchKey not implemented")
+}
+func (*UnimplementedRpcBridgeServer) UnWatchKey(context.Context, *WatchReq) (*WatchRsp, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method UnWatchKey not implemented")
 }
 
 func RegisterRpcBridgeServer(s *grpc.Server, srv RpcBridgeServer) {
@@ -802,6 +1148,68 @@ func _RpcBridge_Del_Handler(srv interface{}, ctx context.Context, dec func(inter
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RpcBridge_Publish_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(RpcBridgeServer).Publish(&rpcBridgePublishServer{stream})
+}
+
+type RpcBridge_PublishServer interface {
+	Send(*PublishRsp) error
+	Recv() (*PublishReq, error)
+	grpc.ServerStream
+}
+
+type rpcBridgePublishServer struct {
+	grpc.ServerStream
+}
+
+func (x *rpcBridgePublishServer) Send(m *PublishRsp) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *rpcBridgePublishServer) Recv() (*PublishReq, error) {
+	m := new(PublishReq)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func _RpcBridge_WatchKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WatchReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RpcBridgeServer).WatchKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/bridge.RpcBridge/WatchKey",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RpcBridgeServer).WatchKey(ctx, req.(*WatchReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RpcBridge_UnWatchKey_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(WatchReq)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RpcBridgeServer).UnWatchKey(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/bridge.RpcBridge/UnWatchKey",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RpcBridgeServer).UnWatchKey(ctx, req.(*WatchReq))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _RpcBridge_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "bridge.RpcBridge",
 	HandlerType: (*RpcBridgeServer)(nil),
@@ -822,7 +1230,22 @@ var _RpcBridge_serviceDesc = grpc.ServiceDesc{
 			MethodName: "Del",
 			Handler:    _RpcBridge_Del_Handler,
 		},
+		{
+			MethodName: "WatchKey",
+			Handler:    _RpcBridge_WatchKey_Handler,
+		},
+		{
+			MethodName: "UnWatchKey",
+			Handler:    _RpcBridge_UnWatchKey_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Publish",
+			Handler:       _RpcBridge_Publish_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "bridge.proto",
 }

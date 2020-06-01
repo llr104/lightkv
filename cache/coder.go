@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 )
 
-func encode(value cacheValue) [] byte{
+func encode(value value) [] byte{
 
 	e := value.Expire
 	d := value.Data
@@ -18,9 +18,9 @@ func encode(value cacheValue) [] byte{
 	return bytesBuffer.Bytes()
 }
 
-func decode(b [] byte) cacheValue{
+func decode(b [] byte) value {
 
-	c := cacheValue{}
+	c := value{}
 	var dataLen int32 = 0
 
 	bytesBuffer := bytes.NewBuffer(b)

@@ -1,45 +1,66 @@
-  syntax = "proto3";
-  package bridge;
-  
-  service RpcBridge {
+syntax = "proto3";
+package bridge;
+
+service RpcBridge {
     rpc Ping (PingReq) returns (PingRsp) {}
     rpc Get (GetReq) returns (GetRsp) {}
     rpc Put (PutReq) returns (PutRsp) {}
     rpc Del (DelReq) returns (DelRsp) {}
-  }
+    rpc Publish(stream PublishReq) returns (stream PublishRsp){}
+    rpc WatchKey(WatchReq) returns (WatchRsp) {}
+    rpc UnWatchKey(WatchReq) returns (WatchRsp) {}
+}
 
-  message PingReq {
+message PingReq {
     int64 timestamp = 1;
-  }
+}
 
-  message PingRsp {
+message PingRsp {
     int64 timestamp = 1;
-  }
+}
 
 message GetReq {
-   string key = 1;
+    string key = 1;
 }
 
 message GetRsp {
-   string key = 1;
-   bytes value = 2;
+    string key = 1;
+    bytes value = 2;
 }
 
 message PutReq {
-   string key = 1;
-   bytes value = 2;
-   int64 expire = 3;
+    string key = 1;
+    bytes value = 2;
+    int64 expire = 3;
 }
 
 message PutRsp {
-   string key = 1;
-   bytes value = 2;
+    string key = 1;
+    bytes value = 2;
 }
 
 message DelReq {
-   string key = 1;
+    string key = 1;
 }
 
 message DelRsp {
-   string key = 1;
+    string key = 1;
+}
+
+message PublishReq {
+    string key = 1;
+}
+
+message PublishRsp {
+    string key = 1;
+    bytes value = 2;
+    int32  type = 3;
+}
+
+message WatchReq {
+    string key = 1;
+}
+
+message WatchRsp {
+    string key = 1;
 }
