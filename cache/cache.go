@@ -5,7 +5,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 )
@@ -93,10 +92,7 @@ func (s *Cache) loadDB()  {
 			 fmt.Println(err)
 		 }else {
 		 	 v := decode(data)
-		 	 p := filepath.ToSlash(path)
-		 	 arr := strings.Split(p, "/")
-		 	 name := strings.Join(arr[1:], "/")
-			 s.caches[name] = v
+			 s.caches[v.Key] = v
 		 }
 
 		return nil
