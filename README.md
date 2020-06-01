@@ -1,6 +1,6 @@
 #基于go的轻量化key-value服务
 
-#1.启动server
+#启动server
 go run main/server.go
 默认会启动一个api(http://localhost:9981)服和一个rpc服(9980端口)
 
@@ -18,7 +18,7 @@ api获取key为add1的kv
 
 
 
-#2.启动测试rpc客户端
+#启动测试rpc客户端
 go run main/client.go  
 
 c := server.NewClient()  
