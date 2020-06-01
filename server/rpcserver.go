@@ -7,7 +7,6 @@ import (
 	"google.golang.org/grpc/stats"
 	"lightkv/cache"
 	"lightkv/pb"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -85,7 +84,7 @@ func (s* rpcHandler) HandleConn(ctx context.Context, stat stats.ConnStats)  {
 }
 
 func (s *rpcHandler) onOP(op cache.OpType, item cache.Item)  {
-	fmt.Printf("key onOP:%s\n", item.Key)
+	//fmt.Printf("key onOP:%s\n", item.Key)
 	s.mutex.Lock()
 	for _, proxy := range s.proxyMap{
 		_, ok := proxy.watchKey[item.Key]
@@ -138,10 +137,7 @@ func (s *server) recvLoop(proxy *rpcProxy, p bridge.RpcBridge_PublishServer, wg 
 			case <-ctx.Done():
 				goto end
 			default:
-				data, err := p.Recv()
-				if err == nil{
-					log.Println(data)
-				}
+				p.Recv()
 				time.Sleep(time.Second/100)
 			}
 		}
@@ -164,7 +160,7 @@ func (s *server) sendLoop(proxy *rpcProxy, p bridge.RpcBridge_PublishServer, wg 
 			case <-ctx.Done():
 				goto end
 			case rsp := <-proxy.sendChan:
-				fmt.Println("send rsp")
+				fmt.Printf("send rsp: %v", rsp)
 				p.Send(&rsp)
 			}
 		}
