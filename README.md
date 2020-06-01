@@ -1,7 +1,12 @@
 # 基于go的轻量化key-value服务
 
 # 启动server
-# go run main/server.go  
+go run main/server.go  
+  
+  
+  
+  
+  
 默认会启动一个api(http://localhost:9981)服和一个rpc服(9980端口)
 
 http://127.0.0.1:9981/put?key=add1&value=addvalue1
@@ -19,7 +24,9 @@ api获取key为add1的kv
 
 
 # 启动测试rpc客户端
-# go run main/client.go  
+  go run main/client.go  
+  
+  
 
 
 # rpc 客户端用法
