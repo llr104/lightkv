@@ -82,12 +82,12 @@ func (s *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if ok3{
 			int64, err := strconv.ParseInt(expire[0], 10, 64)
 			if err == nil{
-				s.cache.Put(key[0], []byte(value[0]), int64)
+				s.cache.Put(key[0], value[0], int64)
 			}else{
-				s.cache.Put(key[0], []byte(value[0]), cache.ExpireForever)
+				s.cache.Put(key[0], value[0], cache.ExpireForever)
 			}
 		}else{
-			s.cache.Put(key[0], []byte(value[0]), cache.ExpireForever)
+			s.cache.Put(key[0], value[0], cache.ExpireForever)
 		}
 		r := Rsp{Key: key[0], Value:value[0], Success:true}
 		data, _ := json.Marshal(r)

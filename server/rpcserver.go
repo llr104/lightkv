@@ -184,7 +184,7 @@ func (s *server) Get(ctx context.Context, in *bridge.GetReq) (*bridge.GetRsp, er
 	if ok {
 		return &bridge.GetRsp{Key:in.Key, Value:v}, nil
 	}else{
-		return &bridge.GetRsp{Key:in.Key, Value:nil}, nil
+		return &bridge.GetRsp{Key:in.Key, Value:""}, nil
 	}
 }
 

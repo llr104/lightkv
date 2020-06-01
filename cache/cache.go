@@ -109,7 +109,7 @@ func (s*Cache) SetOnOP(opFunc func(OpType, Item)) {
 	s.opFunction = opFunc
 }
 
-func (s*Cache) Put(key string, v []byte, expire int64 ) {
+func (s*Cache) Put(key string, v string, expire int64 ) {
 	s.mutex.Lock()
 	var val value
 	if expire == ExpireForever {
@@ -139,7 +139,7 @@ func (s*Cache) Put(key string, v []byte, expire int64 ) {
 
 }
 
-func (s *Cache) Get(key string) ([]byte, bool) {
+func (s *Cache) Get(key string) (string, bool) {
 	s.mutex.RLock()
 	v, ok := s.caches[key]
 	s.mutex.RUnlock()
@@ -147,14 +147,14 @@ func (s *Cache) Get(key string) ([]byte, bool) {
 		t := time.Now().UnixNano()
 		if v.Expire != ExpireForever && v.Expire <= t{
 			fmt.Printf("get Key:%s, not found \n", key)
-			return nil, false
+			return "", false
 		}else{
 			fmt.Printf("get Key:%s, Value: %v \n", key, v.Data)
 			return v.Data, true
 		}
 	}else{
 		fmt.Printf("get Key:%s, not found \n", key)
-		return nil, false
+		return "", false
 	}
 }
 
@@ -170,7 +170,7 @@ func (s *Cache) del(key string) {
 	_, ok := s.caches[key]
 	if ok{
 		delete(s.caches, key)
-		val := value{Expire: ExpireForever, Data:nil}
+		val := value{Expire: ExpireForever, Data:""}
 		item := Item{Key: key, Value:val}
 		op := persistentOp{item:item, opType:Del}
 		s.persistentChan <- op
