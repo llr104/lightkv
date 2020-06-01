@@ -16,7 +16,7 @@ api删除key为add2的kv
 http://127.0.0.1:9981/get/add1
 api获取key为add1的kv
 
-2. 启动测试rpc客户端
+#2.启动测试rpc客户端
 go run main/client.go
 
 c := server.NewClient()
