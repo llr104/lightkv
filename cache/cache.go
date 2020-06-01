@@ -109,7 +109,7 @@ func (s*Cache) Put(key string, v string, expire int64 ) {
 	s.mutex.Lock()
 	var val value
 	if expire == ExpireForever {
-		val = value{Data: v, Expire:ExpireForever}
+		val = value{Key:key, Data: v, Expire:ExpireForever}
 		s.caches[key] = val
 
 		item := Item{Key: key, Value:val}
@@ -118,7 +118,7 @@ func (s*Cache) Put(key string, v string, expire int64 ) {
 		}
 	}else{
 		e := time.Now().UnixNano() + expire*int64(time.Second)
-		val = value{Data: v, Expire:e}
+		val = value{Key:key, Data: v, Expire:e}
 		s.caches[key] = val
 		item := Item{Key: key, Value:val}
 		if s.opFunction != nil{
@@ -166,7 +166,7 @@ func (s *Cache) del(key string) {
 	_, ok := s.caches[key]
 	if ok{
 		delete(s.caches, key)
-		val := value{Expire: ExpireForever, Data:""}
+		val := value{Key:key, Expire: ExpireForever, Data:""}
 		item := Item{Key: key, Value:val}
 		op := persistentOp{item:item, opType:Del}
 		s.persistentChan <- op
