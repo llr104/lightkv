@@ -107,9 +107,21 @@ func (s*Cache) SetOnOP(opFunc func(OpType, Item)) {
 
 func (s*Cache) Put(key string, v string, expire int64 ) {
 	s.mutex.Lock()
+	old, has := s.caches[key]
+	var needUpdate bool = false
 	var val value
 	if expire == ExpireForever {
 		val = value{Key:key, Data: v, Expire:ExpireForever}
+
+		if has {
+			if old.Data == val.Data && old.Expire == val.Expire{
+				needUpdate = false
+			}else{
+				needUpdate = true
+			}
+		}else{
+			needUpdate = true
+		}
 		s.caches[key] = val
 
 		item := Item{Key: key, Value:val}
@@ -117,6 +129,7 @@ func (s*Cache) Put(key string, v string, expire int64 ) {
 			s.opFunction(Add, item)
 		}
 	}else{
+		needUpdate = true
 		e := time.Now().UnixNano() + expire*int64(time.Second)
 		val = value{Key:key, Data: v, Expire:e}
 		s.caches[key] = val
@@ -129,9 +142,11 @@ func (s*Cache) Put(key string, v string, expire int64 ) {
 
 	fmt.Printf("put Key:%s, Value:%v, expire:%d\n", key, v, expire)
 
-	item := Item{Key: key, Value:val}
-	op := persistentOp{item:item, opType:Add}
-	s.persistentChan <- op
+	if needUpdate {
+		item := Item{Key: key, Value:val}
+		op := persistentOp{item:item, opType:Add}
+		s.persistentChan <- op
+	}
 
 }
 

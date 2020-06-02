@@ -149,7 +149,7 @@ func (s *server) recvLoop(proxy *rpcProxy, p bridge.RpcBridge_PublishServer, wg 
 }
 
 func (s *server) sendLoop(proxy *rpcProxy, p bridge.RpcBridge_PublishServer, wg *sync.WaitGroup)  {
-	ch := make(chan bridge.PublishRsp)
+	ch := make(chan bridge.PublishRsp, 1024)
 	ctx, cancel := context.WithCancel(context.Background())
 	proxy.recvCancel = cancel
 	proxy.sendChan = ch
