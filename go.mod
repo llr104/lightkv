@@ -1,4 +1,4 @@
-module lightkv
+module github.com/llr104/lightkv
 
 go 1.13
 

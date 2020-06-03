@@ -2,10 +2,10 @@ package server
 
 import (
 	"fmt"
+	"github.com/llr104/lightkv/cache"
+	bridge "github.com/llr104/lightkv/pb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
-	"lightkv/cache"
-	bridge "lightkv/pb"
 	"log"
 	"sync"
 	"time"

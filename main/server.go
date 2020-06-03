@@ -1,8 +1,8 @@
 package main
 
 import (
-	"lightkv/cache"
-	"lightkv/server"
+	"github.com/llr104/lightkv/cache"
+	"github.com/llr104/lightkv/server"
 )
 
 func main() {

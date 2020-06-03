@@ -2,7 +2,7 @@ package server
 
 import (
 	"context"
-	bridge "lightkv/pb"
+	bridge "github.com/llr104/lightkv/pb"
 )
 
 type rpcProxy struct {

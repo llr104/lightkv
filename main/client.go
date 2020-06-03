@@ -4,8 +4,8 @@ package main
 import (
 	"fmt"
 	_ "fmt"
-	"lightkv/cache"
-	"lightkv/server"
+	"github.com/llr104/lightkv/cache"
+	"github.com/llr104/lightkv/server"
 	"time"
 )
 

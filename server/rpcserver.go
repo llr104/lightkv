@@ -2,11 +2,11 @@ package server
 
 import (
 	"fmt"
+	"github.com/llr104/lightkv/cache"
+	"github.com/llr104/lightkv/pb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/stats"
-	"lightkv/cache"
-	"lightkv/pb"
 	"net"
 	"sync"
 	"time"

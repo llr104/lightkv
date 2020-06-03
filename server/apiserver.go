@@ -3,7 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"lightkv/cache"
+	"github.com/llr104/lightkv/cache"
 	"net/http"
 	"strconv"
 	"strings"
