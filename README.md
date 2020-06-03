@@ -6,7 +6,7 @@ go run main/server.go
 ```
   
   
-- 默认会启动一个api(http://localhost:9981)服和一个rpc服(9980端口)
+- 会启动一个api服务(http://localhost:9981) 和一个rpc服务(9980端口)
 
 - http://localhost:9981/put?key=add1&value=addvalue1 api新增一条kv，key为add1,value为addvalue1，kv不过期 
 
