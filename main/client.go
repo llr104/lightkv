@@ -20,7 +20,7 @@ func main() {
 	c.Put("test2","test2_value",20)
 
 	//删除kv
-	c.Del("test1")
+	c.Del("test")
 
 	v := c.Get("test2")
 	fmt.Printf("test2:%s\n", v)
