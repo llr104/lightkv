@@ -1,6 +1,7 @@
 package server
 
 import (
+	context2 "context"
 	"fmt"
 	"github.com/llr104/lightkv/cache"
 	"github.com/llr104/lightkv/pb"
@@ -47,7 +48,7 @@ func (s* rpcHandler) TagConn(ctx context.Context, stat *stats.ConnTagInfo) conte
 	if s.curID >2^15{
 		s.curID = 0
 	}
-	s.proxyMap[tag] = &rpcProxy{watchKey:make(map[string]string)}
+	s.proxyMap[tag] = &rpcProxy{watchKey:make(map[string]string), watchMap:make(map[string]map[string]string)}
 	fmt.Printf("TagConn:%s\n", tag)
 
 	return context.WithValue(ctx, "curID", tag)
@@ -85,16 +86,34 @@ func (s* rpcHandler) HandleConn(ctx context.Context, stat stats.ConnStats)  {
 
 func (s *rpcHandler) onOP(op cache.OpType, item cache.Item)  {
 	//fmt.Printf("key onOP:%s\n", item.Key)
-	s.mutex.Lock()
-	for _, proxy := range s.proxyMap{
-		_, ok := proxy.watchKey[item.Key]
-		if ok {
-			//通知推送
-			rsp := bridge.PublishRsp{Key:item.Key, Value:item.Value.Data, Type:int32(op)}
-			proxy.sendChan <- rsp
+
+	switch item.Value.(type) {
+		case *cache.Value:
+			s.mutex.Lock()
+			for _, proxy := range s.proxyMap{
+				v := item.Value.(*cache.Value)
+				_, ok := proxy.watchKey[v.Key]
+				if ok {
+					//通知推送
+					rsp := bridge.PublishRsp{HmKey:"", Key:item.Key, Value:v.ToString(), Type:int32(op)}
+					proxy.sendChan <- rsp
+				}
+			}
+			s.mutex.Unlock()
+		case *cache.MapValue:{
+			s.mutex.Lock()
+			for _, proxy := range s.proxyMap{
+				v := item.Value.(*cache.MapValue)
+				_, ok := proxy.watchMap[v.Key]
+				if ok {
+					//通知推送
+					rsp := bridge.PublishRsp{HmKey:v.Key, Key: item.Key, Value:v.ToString(), Type:int32(op)}
+					proxy.sendChan <- rsp
+				}
+			}
+			s.mutex.Unlock()
 		}
 	}
-	s.mutex.Unlock()
 }
 
 type server struct{
@@ -160,7 +179,7 @@ func (s *server) sendLoop(proxy *rpcProxy, p bridge.RpcBridge_PublishServer, wg 
 			case <-ctx.Done():
 				goto end
 			case rsp := <-proxy.sendChan:
-				fmt.Printf("send rsp: %v", rsp)
+				fmt.Printf("send rsp: %v\n", rsp)
 				p.Send(&rsp)
 			}
 		}
@@ -176,11 +195,11 @@ func (s *server) Ping(ctx context.Context, in *bridge.PingReq) (*bridge.PingRsp,
 }
 
 func (s *server) Get(ctx context.Context, in *bridge.GetReq) (*bridge.GetRsp, error) {
-	v, ok := s.cache.Get(in.Key)
-	if ok {
+	v, err := s.cache.Get(in.Key)
+	if err == nil {
 		return &bridge.GetRsp{Key:in.Key, Value:v}, nil
 	}else{
-		return &bridge.GetRsp{Key:in.Key, Value:""}, nil
+		return &bridge.GetRsp{Key:in.Key, Value:""}, err
 	}
 }
 
@@ -217,6 +236,65 @@ func (s *server) UnWatchKey(ctx context.Context, in *bridge.WatchReq) (*bridge.W
 	s.handler.mutex.Unlock()
 
 	return &bridge.WatchRsp{Key:in.Key}, nil
+}
+
+func (s *server) HMGet(ctx context2.Context, in *bridge.HMGetReq) (*bridge.HMGetRsp, error) {
+	str, err := s.cache.HMGet(in.HmKey)
+	return &bridge.HMGetRsp{HmKey:in.HmKey, Value:str}, err
+}
+
+func (s *server) HMGetMember(ctx context2.Context, in *bridge.HMGetMemberReq) (*bridge.HMGetMemberRsp, error) {
+	str, err := s.cache.HMGetMember(in.HmKey, in.Key)
+	return &bridge.HMGetMemberRsp{HmKey:in.HmKey, Key:in.Key,  Value:str}, err
+}
+
+func (s *server) HMPut(ctx context2.Context, in *bridge.HMPutReq) (*bridge.HMPutRsp, error) {
+	err := s.cache.HMPut(in.HmKey, in.GetKey(), in.GetValue(), in.Expire)
+	return &bridge.HMPutRsp{HmKey:in.HmKey, Key:in.Key,  Value:in.Value}, err
+}
+
+func (s *server) HMDel(ctx context2.Context, in *bridge.HMDelReq) (*bridge.HMDelRsp, error) {
+	err := s.cache.HMDel(in.HmKey)
+	return &bridge.HMDelRsp{HmKey:in.HmKey}, err
+}
+
+func (s *server) HMDelMember(ctx context2.Context, in *bridge.HMDelMemberReq) (*bridge.HMDelMemberRsp, error) {
+	err := s.cache.HMDelMember(in.HmKey, in.Key)
+	return &bridge.HMDelMemberRsp{HmKey:in.HmKey}, err
+}
+
+func (s *server) HMWatch(ctx context2.Context, in *bridge.HMWatchReq) (*bridge.HMWatchRsp, error) {
+	s.handler.mutex.Lock()
+	cid := ctx.Value("curID")
+	proxy, ok := s.handler.proxyMap[cid.(string)]
+	if ok {
+		m, ok1 := proxy.watchMap[in.HmKey]
+		if !ok1 {
+			m = make(map[string]string)
+		}
+		m[in.Key] = in.Key
+		proxy.watchMap[in.HmKey] = m
+	}
+
+	s.handler.mutex.Unlock()
+	return &bridge.HMWatchRsp{HmKey:in.HmKey, Key:in.Key}, nil
+
+}
+
+func (s *server) HMUnWatchHM(ctx context2.Context, in *bridge.HMWatchReq) (*bridge.HMWatchRsp, error) {
+	s.handler.mutex.Lock()
+	cid := ctx.Value("curID")
+	proxy, ok := s.handler.proxyMap[cid.(string)]
+	if ok {
+		m, ok1 := proxy.watchMap[in.HmKey]
+		if ok1{
+			delete(m, in.Key)
+		}
+		proxy.watchMap[in.HmKey] = m
+	}
+	s.handler.mutex.Unlock()
+
+	return &bridge.HMWatchRsp{HmKey:in.HmKey, Key:in.Key}, nil
 }
 
 
