@@ -66,22 +66,24 @@ func main() {
 	log.Printf("after del hmtest1:%s\n", c.HMGet("hmtest1"))
 	time.Sleep(time.Second*1)
 
-	c.HMWatch("hmtest2", "", func(k string, v string, t cache.OpType) {
+	c.HMWatch("hmtest2", "", func(hk string, k string, v string, t cache.OpType) {
 		log.Printf("watch key:%s, value:%s, type:%d\n", k, v, t)
 	})
 
-	c.HMWatch("hmtest2", "k1", func(k string, v string, t cache.OpType) {
-		log.Printf("hmtest2 1111 watch key:%s, value:%s, type:%d\n", k, v, t)
+	c.HMWatch("hmtest2", "k1", func(hk string, k string, v string, t cache.OpType) {
+		log.Printf(" watchMap key:%s, fieldKey:%s, value:%s, type:%d\n", hk, k, v, t)
 	})
 
-	c.HMWatch("hmtest2", "", func(k string, v string, t cache.OpType) {
-		log.Printf("hmtest2 2222 watch key:%s, value:%s, type:%d\n", k, v, t)
+	c.HMWatch("hmtest2", "", func(hk string, k string, v string, t cache.OpType) {
+		log.Printf(" watchMap key:%s, fieldKey:%s, value:%s, type:%d\n", hk, k, v, t)
 	})
 
 
 	c.HMPut("hmtest2", keys, vals, 50)
 
+	c.HMDelMember("hmtest2", "k2")
+
 	time.Sleep(time.Second*60)
 	c.Close()
-	
+
 }

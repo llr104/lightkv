@@ -43,8 +43,13 @@ const (
 	Del = 1
 )
 
-type persistentOp struct {
-	item   Item
+type persistentValueOp struct {
+	item   Value
+	opType OpType
+}
+
+type persistentMapOp struct {
+	item   MapValue
 	opType OpType
 }
 
@@ -53,8 +58,10 @@ type Cache struct{
 	mapCaches map[string]MapValue
 
 	checkExpireInterval int
-	persistentChan chan persistentOp
-	opFunction func(OpType, Item)
+	persistentChan chan persistentValueOp
+	persistentMapChan chan persistentMapOp
+
+	opFunction func(OpType, DataString)
 	mutex sync.RWMutex
 	mapMutex sync.RWMutex
 }
@@ -69,7 +76,8 @@ func NewCache(checkExpireInterval int) *Cache {
 	 	caches: make(map[string]Value),
 	 	mapCaches:make(map[string]MapValue),
 	 	checkExpireInterval:checkExpireInterval,
-	 	persistentChan:make(chan persistentOp),
+	 	persistentChan:make(chan persistentValueOp),
+	 	persistentMapChan:make(chan persistentMapOp),
 	 	opFunction:nil,
 	 }
 	 c.init()
@@ -128,7 +136,7 @@ func (s *Cache) loadDB()  {
 	log.Printf("load db finish, %d Key-cacheValue ", len(s.caches)+len(s.mapCaches))
 }
 
-func (s*Cache) SetOnOP(opFunc func(OpType, Item)) {
+func (s*Cache) SetOnOP(opFunc func(OpType, DataString)) {
 	s.opFunction = opFunc
 }
 
@@ -151,18 +159,16 @@ func (s*Cache) Put(key string, v string, expire int64 ) error{
 		}
 		s.caches[key] = val
 
-		item := Item{Key: key, Value:&val}
 		if s.opFunction != nil{
-			s.opFunction(Add, item)
+			s.opFunction(Add, &val)
 		}
 	}else{
 		needUpdate = true
 		e := time.Now().UnixNano() + expire*int64(time.Second)
 		val = Value{Key: key, Data: v, Expire:e}
 		s.caches[key] = val
-		item := Item{Key: key, Value:&val}
 		if s.opFunction != nil{
-			s.opFunction(Add, item)
+			s.opFunction(Add, &val)
 		}
 	}
 	s.mutex.Unlock()
@@ -170,8 +176,7 @@ func (s*Cache) Put(key string, v string, expire int64 ) error{
 	log.Printf("put Key:%s, Value:%v, expire:%d", key, v, expire)
 
 	if needUpdate {
-		item := Item{Key: key, Value:&val}
-		op := persistentOp{item:item, opType:Add}
+		op := persistentValueOp{item: val, opType:Add}
 		s.persistentChan <- op
 	}
 
@@ -214,7 +219,7 @@ func (s *Cache) HMPut(hmKey string, keys [] string,  fields [] string, expire in
 
 	m, ok := s.mapCaches[hmKey]
 	if !ok{
-		m = MapValue{Data: make(map[string]string), Key:hmKey, Expire:expire}
+		m = MapValue{Data: make(map[string]string), Key:hmKey, Expire:ExpireForever}
 	}
 
 	if expire == ExpireForever{
@@ -223,18 +228,21 @@ func (s *Cache) HMPut(hmKey string, keys [] string,  fields [] string, expire in
 		m.Expire = time.Now().UnixNano() + expire*int64(time.Second)
 	}
 
+	//存放变化的值
+	temp := MapValue{Data: make(map[string]string), Key:hmKey, Expire:m.Expire}
 	for i:=0; i<len(keys); i++ {
 		m.Data[keys[i]] = fields[i]
+		temp.Data[keys[i]] = fields[i]
 	}
 
 	s.mapCaches[hmKey] = m
 
-	item := Item{Key: "", Value:&m}
-	op := persistentOp{item:item, opType:Add}
-	s.persistentChan <- op
+	op := persistentMapOp{item: m, opType:Add}
+	s.persistentMapChan <- op
 
+	//只推送变化的值
 	if s.opFunction != nil{
-		s.opFunction(Add, item)
+		s.opFunction(Add, &temp)
 	}
 
 	return nil
@@ -281,16 +289,24 @@ func (s *Cache) HMDelMember(hmKey string, fieldKey string) error{
 		return errors.New(str)
 	}
 
-	delete(m.Data, fieldKey)
-	s.mapCaches[hmKey] = m
+	v, ok1 := m.Data[fieldKey]
+	if ok1 {
+		delete(m.Data, fieldKey)
+		s.mapCaches[hmKey] = m
 
-	item := Item{Key: fieldKey, Value:&m}
-	op := persistentOp{item:item, opType:Del}
-	s.persistentChan <- op
+		//存放变化的值
+		temp := MapValue{Data: make(map[string]string), Key:hmKey, Expire:m.Expire}
+		temp.Data[fieldKey] = v
 
-	if s.opFunction != nil{
-		s.opFunction(Del, item)
+		op := persistentMapOp{item: m, opType:Del}
+		s.persistentMapChan <- op
+
+		//只推送变化的值
+		if s.opFunction != nil{
+			s.opFunction(Del, &temp)
+		}
 	}
+
 	return nil
 }
 
@@ -310,12 +326,11 @@ func (s *Cache) del(key string) {
 	if ok{
 		delete(s.caches, key)
 		val := Value{Key: key, Expire: ExpireForever, Data:""}
-		item := Item{Key: key, Value:&val}
-		op := persistentOp{item:item, opType:Del}
+		op := persistentValueOp{item: val, opType:Del}
 		s.persistentChan <- op
 
 		if s.opFunction != nil{
-			s.opFunction(Del, item)
+			s.opFunction(Del, &val)
 		}
 	}
 }
@@ -323,17 +338,15 @@ func (s *Cache) del(key string) {
 func (s *Cache) hDel(key string) {
 
 	log.Printf("hDel Key:%s", key)
-	_, ok := s.mapCaches[key]
+	m, ok := s.mapCaches[key]
 	if ok {
 		delete(s.mapCaches, key)
 
-		val := Value{Key: key, Expire: ExpireForever, Data:""}
-		item := Item{Key: "", Value:&val}
-		op := persistentOp{item:item, opType:Del}
-		s.persistentChan <- op
+		op := persistentMapOp{item: m, opType:Del}
+		s.persistentMapChan <- op
 
 		if s.opFunction != nil{
-			s.opFunction(Del, item)
+			s.opFunction(Del, &m)
 		}
 	}
 }
@@ -367,30 +380,21 @@ func (s *Cache) persistent()  {
 	for{
 		select {
 			case op := <-s.persistentChan:
+				v := op.item
 				if op.opType == Add {
-					switch op.item.Value.(type) {
-						case *Value:
-							v := op.item.Value.(*Value)
-							s.saveDataBaseKV(v.Key, *v)
-						case *MapValue:
-							v := op.item.Value.(*MapValue)
-							s.hSaveDatabaseKV(v.Key, *v)
-					}
-
+					s.saveDataBaseKV(v.Key, v)
 				}else if op.opType == Del{
-					switch op.item.Value.(type) {
-					case *Value:
-						v := op.item.Value.(*Value)
-						s.delDatabaseKV(v.Key)
-					case *MapValue:
-						v := op.item.Value.(*MapValue)
-						s.hDelDatabase(v.Key)
-					}
-
+					s.delDatabaseKV(v.Key)
+				}
+			case op := <-s.persistentMapChan:
+				v := op.item
+				if op.opType == Add {
+					s.hSaveDatabaseKV(v.Key, v)
+				}else if op.opType == Del{
+					s.hDelDatabase(v.Key)
 				}
 			}
 	}
-
 }
 
 func (s *Cache) saveDataBaseKV(key string, v Value) {

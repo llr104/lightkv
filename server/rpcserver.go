@@ -84,18 +84,18 @@ func (s* rpcHandler) HandleConn(ctx context.Context, stat stats.ConnStats)  {
 
 }
 
-func (s *rpcHandler) onOP(op cache.OpType, item cache.Item)  {
+func (s *rpcHandler) onOP(op cache.OpType, item cache.DataString)  {
 	//fmt.Printf("key onOP:%s\n", item.Key)
 
-	switch item.Value.(type) {
+	switch item.(type) {
 		case *cache.Value:
 			s.mutex.Lock()
 			for _, proxy := range s.proxyMap{
-				v := item.Value.(*cache.Value)
+				v := item.(*cache.Value)
 				_, ok := proxy.watchKey[v.Key]
 				if ok {
 					//通知推送
-					rsp := bridge.PublishRsp{HmKey:"", Key:item.Key, Value:v.ToString(), Type:int32(op)}
+					rsp := bridge.PublishRsp{HmKey:"", Key:v.Key, Value:v.ToString(), Type:int32(op)}
 					proxy.sendChan <- rsp
 				}
 			}
@@ -103,11 +103,11 @@ func (s *rpcHandler) onOP(op cache.OpType, item cache.Item)  {
 		case *cache.MapValue:{
 			s.mutex.Lock()
 			for _, proxy := range s.proxyMap{
-				v := item.Value.(*cache.MapValue)
+				v := item.(*cache.MapValue)
 				_, ok := proxy.watchMap[v.Key]
 				if ok {
 					//通知推送
-					rsp := bridge.PublishRsp{HmKey:v.Key, Key: item.Key, Value:v.ToString(), Type:int32(op)}
+					rsp := bridge.PublishRsp{HmKey:v.Key, Key: "", Value:v.ToString(), Type:int32(op)}
 					proxy.sendChan <- rsp
 				}
 			}

@@ -6,10 +6,6 @@ type DataString interface {
 	ToString() string
 }
 
-type Item struct {
-	Key string
-	Value DataString
-}
 
 type Value struct{
 	Key    string       		`json:"Key"`
