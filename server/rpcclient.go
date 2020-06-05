@@ -198,7 +198,10 @@ func (s*rpcClient) UnWatchKey(key string) error{
 	return err
 }
 
-
+/*
+hmKey: map key
+key:元素key， 空为监听整个map
+*/
 func (s *rpcClient) HMWatch(hmKey string, key string, watchFunc func(string, string, string, cache.OpType)) error {
 	_, err := s.c.HMWatch(context.Background(), &bridge.HMWatchReq{HmKey:hmKey, Key:key})
 	if err != nil{
