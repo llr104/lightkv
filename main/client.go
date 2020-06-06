@@ -11,13 +11,23 @@ import (
 
 func main() {
 
+	testValue()
+	testMap()
+	testList()
+
+	time.Sleep(time.Second*60)
+}
+
+func testValue()  {
 	c := server.NewClient()
 	c.Start()
+	defer c.Close()
 
 	//添加kv
 	c.Put("test","test_value",0)
 	c.Put("test1/tttt","test1_value",0)
-	c.Put("test2","test2_value",20)
+	c.Put("test2","test2_value",5)
+	c.Put("test3","test3_value",5)
 
 	v := c.Get("test2")
 	log.Printf("获取 test2 的值:%s", v)
@@ -53,8 +63,6 @@ func main() {
 	})
 
 
-	time.Sleep(time.Second*3)
-
 	c.Put("unwatch", "this is before unwatch", 0)
 
 	//取消监听key值的变化
@@ -69,6 +77,15 @@ func main() {
 	c.Del("watchdel")
 
 	log.Printf("获取 unwatch:%s", c.Get("unwatch"))
+
+}
+
+
+func testMap()  {
+	c := server.NewClient()
+	c.Start()
+	defer c.Close()
+
 
 	keys := []string{"k1", "k2", "k3"}
 	vals := []string{"v1", "v2", "v3"}
@@ -145,7 +162,6 @@ func main() {
 
 	log.Printf("获取 hmtest2 map的值:\n%s", c.HMGet("hmtest2"))
 
-
 	log.Printf("获取hmtest2 map 中k2元素:%s", c.HMGetMember("hmtest2", "k2"))
 
 	//删除hmtest2 中的k2
@@ -154,7 +170,55 @@ func main() {
 
 	log.Printf("获取hmtest2 map 中k2元素:%s", c.HMGetMember("hmtest2", "k2"))
 
-	time.Sleep(time.Second*60)
-	c.Close()
+	time.Sleep(10*time.Second)
+
+}
+
+func testList()  {
+	c := server.NewClient()
+	c.Start()
+	defer c.Close()
+
+	c.LPut("testlist", []string{"1","2", "3"}, 10)
+
+	c.LPut("list1", []string{"a1","a2", "a3"}, 0)
+	arr, _ := c.LGet("list1")
+	log.Printf("获取list1:%v", arr)
+
+	c.LPut("list2", []string{"b1","b2", "b3", "b4", "b5"}, 0)
+	arr, _ = c.LGet("list2")
+	log.Printf("获取list2:%v", arr)
+
+	arr, _ = c.LGetRange("list2", 0,2)
+	log.Printf("获取list2 0-2:元素%v", arr)
+
+	log.Printf("删除list2 1-3位元素")
+	c.LDelRange("list2", 1,3)
+
+	arr, _ = c.LGet("list2")
+	log.Printf("获取list2:%v", arr)
+
+	c.LWatchKey("watchList", func(key string, before []string, after []string, opType cache.OpType) {
+		if opType == cache.Add{
+			log.Printf("%s 新增了，新增前的值为：%v，新增后的值为:%v", key, before, after)
+		}else{
+			log.Printf("%s 删除了，删除前的值为：%v,删除后的值为:%v", key, before, after)
+		}
+	})
+
+	log.Printf("添加watchList")
+	c.LPut("watchList", []string{"c1", "c2", "c3", "c4", "c5"}, 0)
+
+	log.Printf("删除watchList的0-2元素")
+	c.LDelRange("watchList", 0,2)
+
+	log.Printf("取消监听watchList")
+	c.LUnWatchKey("watchList")
+
+	log.Printf("删除watchList")
+	c.LDel("watchList")
+
+	arr, _ = c.LGet("watchList")
+	log.Printf("获取watchList:%v", arr)
 
 }

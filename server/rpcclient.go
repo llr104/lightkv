@@ -6,6 +6,7 @@ import (
 	bridge "github.com/llr104/lightkv/pb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"log"
 	"sync"
 	"time"
@@ -13,7 +14,7 @@ import (
 
 type WatchKeyFunc func(string, string, string, cache.OpType)
 type WatchMapFunc func(string, string, string, string, cache.OpType)
-type WatchListFunc func(string, string, string, cache.OpType)
+type WatchListFunc func(string, []string, []string, cache.OpType)
 
 type rpcClient struct {
 	c          bridge.RpcBridgeClient
@@ -35,6 +36,8 @@ func NewClient() *rpcClient{
 		watchList:make(map[string]WatchListFunc)}
 
 	conn, err := grpc.Dial("127.0.0.1:9980", grpc.WithInsecure())
+
+	log.Printf("conn addr:%p", &conn)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
 	}
@@ -50,6 +53,10 @@ func (s*rpcClient) Start() {
 	go func() {
 		for {
 			time.Sleep(1*time.Second/2)
+			if s.isClose(){
+				return
+			}
+
 			_, err := s.c.Ping(context.Background(), &bridge.PingReq{Timestamp:time.Now().UnixNano()})
 			if err != nil {
 				log.Fatalf("could not greet: %v", err)
@@ -65,12 +72,20 @@ func (s*rpcClient) Start() {
 		go func() {
 			for{
 				time.Sleep(time.Second)
+				if s.isClose(){
+					return
+				}
+
 				p.Send(&bridge.PublishReq{Timestamp:time.Now().UnixNano()/int64(time.Millisecond)})
 			}
 		}()
 
 		go func() {
 			for {
+				if s.isClose(){
+					return
+				}
+
 				data, err := p.Recv()
 				if err != nil{
 					//log.Printf("err:%s\n", err.Error())
@@ -127,7 +142,13 @@ func (s*rpcClient) Start() {
 						s.listMutex.Lock()
 						f, ok := s.watchList[data.Key]
 						if ok {
-							f(data.Key, data.BeforeValue, data.AfterValue, cache.OpType(data.Type))
+							bd := cache.ListValue{}
+							json.Unmarshal([]byte(data.BeforeValue), &bd.Data)
+
+							ad := cache.ListValue{}
+							json.Unmarshal([]byte(data.AfterValue), &ad.Data)
+
+							f(data.Key, bd.Data, ad.Data, cache.OpType(data.Type))
 						}
 						s.listMutex.Unlock()
 					}
@@ -140,9 +161,19 @@ func (s*rpcClient) Start() {
 }
 
 func (s*rpcClient) Close()  {
-	s.conn.Close()
+	err := s.conn.Close()
+	if err != nil{
+		log.Printf("Close:%s", err.Error())
+	}
 }
 
+func (s *rpcClient) isClose() bool {
+	return s.conn.GetState() == connectivity.Shutdown
+}
+
+/*
+value
+*/
 func (s*rpcClient) Put(key string, value string, expire int64) error{
 	_, err := s.c.Put(context.Background(), &bridge.PutReq{Key:key,  Value:value, Expire:expire})
 	if err != nil{
@@ -170,7 +201,33 @@ func (s*rpcClient) Del(key string) error{
 	return err
 }
 
+func (s*rpcClient) WatchKey(key string, watchFunc WatchKeyFunc) error{
+	_, err := s.c.WatchKey(context.Background(), &bridge.WatchReq{Key: key})
+	if err != nil{
+		log.Printf("WatchKey error: %s\n", err.Error())
+	}else{
+		s.valueMutex.Lock()
+		s.watchKey[key] = watchFunc
+		s.valueMutex.Unlock()
+	}
+	return err
+}
 
+func (s*rpcClient) UnWatchKey(key string) error{
+	_, err := s.c.UnWatchKey(context.Background(), &bridge.WatchReq{Key: key})
+	if err != nil{
+		log.Printf("UnWatchKey error: %s\n", err.Error())
+	}else{
+		s.valueMutex.Lock()
+		delete(s.watchKey, key)
+		s.valueMutex.Unlock()
+	}
+	return err
+}
+
+/*
+map
+*/
 func (s *rpcClient) HMGet(hmKey string) string {
 	rsp, err := s.c.HMGet(context.Background(), &bridge.HMGetReq{HmKey:hmKey})
 	if err != nil{
@@ -198,37 +255,20 @@ func (s *rpcClient) HMPut(hmKey string, key []string, val [] string, expire int6
 
 func (s *rpcClient) HMDel(hmKey string)  error {
 	_, err := s.c.HMDel(context.Background(), &bridge.HMDelReq{HmKey: hmKey})
+	if err != nil{
+		log.Printf("HMDel error: %s\n", err.Error())
+	}
 	return err
 }
 
 func (s *rpcClient) HMDelMember(hmKey string, key string) error {
 	_, err := s.c.HMDelMember(context.Background(), &bridge.HMDelMemberReq{HmKey:hmKey, Key:key})
-	return err
-}
-
-func (s*rpcClient) WatchKey(key string, watchFunc func(string, string, string, cache.OpType)) error{
-	_, err := s.c.WatchKey(context.Background(), &bridge.WatchReq{Key: key})
 	if err != nil{
-		log.Printf("WatchKey error: %s\n", err.Error())
-	}else{
-		s.valueMutex.Lock()
-		s.watchKey[key] = watchFunc
-		s.valueMutex.Unlock()
+		log.Printf("HMDelMember error: %s\n", err.Error())
 	}
 	return err
 }
 
-func (s*rpcClient) UnWatchKey(key string) error{
-	_, err := s.c.UnWatchKey(context.Background(), &bridge.WatchReq{Key: key})
-	if err != nil{
-		log.Printf("UnWatchKey error: %s\n", err.Error())
-	}else{
-		s.valueMutex.Lock()
-		delete(s.watchKey, key)
-		s.valueMutex.Unlock()
-	}
-	return err
-}
 
 /*
 hmKey: map key
@@ -269,5 +309,72 @@ func (s *rpcClient) HMUnWatchHM(hmKey string, key string) error{
 	return err
 }
 
+/*
+list
+*/
+func (s*rpcClient) LPut(key string, value [] string, expire int64) error{
+	_, err := s.c.LPut(context.Background(), &bridge.LPutReq{Key:key,  Value:value, Expire:expire})
+	if err != nil{
+		log.Printf("LPut error: %s\n", err.Error())
+	}
+	return err
+}
+
+func (s*rpcClient) LGet(key string)([]string, error){
+	rsp, err := s.c.LGet(context.Background(), &bridge.LGetReq{Key:key})
+	if err != nil{
+		log.Printf("LGet error: %s\n", err.Error())
+	}
+	return rsp.Value, err
+}
+
+func (s*rpcClient) LGetRange(key string, begIndex int32, endIndex int32) ([]string, error){
+	rsp, err := s.c.LGetRange(context.Background(), &bridge.LGetRangeReq{Key:key, BegIndex:begIndex, EndIndex:endIndex})
+	if err != nil{
+		log.Printf("LGetRange error: %s\n", err.Error())
+	}
+	return rsp.Value, err
+}
+
+func (s*rpcClient) LDel(key string) error{
+	_, err := s.c.LDel(context.Background(), &bridge.LDelReq{Key:key})
+	if err != nil{
+		log.Printf("LDel error: %s\n", err.Error())
+	}
+	return err
+}
+
+
+func (s*rpcClient) LDelRange(key string, begIndex int32, endIndex int32) error{
+	_, err := s.c.LDelRange(context.Background(), &bridge.LDelRangeReq{Key:key, BegIndex:begIndex, EndIndex:endIndex})
+	if err != nil{
+		log.Printf("LDelRange error: %s\n", err.Error())
+	}
+	return err
+}
+
+func (s*rpcClient) LWatchKey(key string, watchFunc WatchListFunc) error{
+	_, err := s.c.LWatch(context.Background(), &bridge.LWatchReq{Key: key})
+	if err != nil{
+		log.Printf("LWatchKey error: %s\n", err.Error())
+	}else{
+		s.listMutex.Lock()
+		s.watchList[key] = watchFunc
+		s.listMutex.Unlock()
+	}
+	return err
+}
+
+func (s*rpcClient) LUnWatchKey(key string) error{
+	_, err := s.c.UnWatchKey(context.Background(), &bridge.WatchReq{Key: key})
+	if err != nil{
+		log.Printf("LUnWatchKey error: %s\n", err.Error())
+	}else{
+		s.listMutex.Lock()
+		delete(s.watchList, key)
+		s.listMutex.Unlock()
+	}
+	return err
+}
 
 

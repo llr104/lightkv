@@ -100,6 +100,7 @@ func (s*Cache) init() {
 	os.Mkdir(DefaultDBPath, os.ModePerm)
 	os.Mkdir(ValueDBPath, os.ModePerm)
 	os.Mkdir(MapDBPath, os.ModePerm)
+	os.Mkdir(ListDBPath, os.ModePerm)
 
 	s.loadDB()
 
@@ -470,24 +471,25 @@ func (s *Cache) LDel(key string) error{
 	return nil
 }
 
-func (s *Cache) LGet(key string) (string, error){
+func (s *Cache) LGet(key string) ([]string, error){
 	s.listMutex.RLock()
 	defer s.listMutex.RUnlock()
 	m, ok := s.listCaches[key]
 	if !ok {
 		str := fmt.Sprintf("not have key:%s list", key)
-		return "", errors.New(str)
+		return []string{}, errors.New(str)
 	}
 
-	d, err := json.MarshalIndent(m.Data, "", "")
-	return string(d), err
+	return m.Data, nil
+	//d, err := json.MarshalIndent(m.Data, "", "")
+	//return string(d), err
 }
 
-func (s *Cache) LGetRange(key string, beg int, end int) (string, error){
+func (s *Cache) LGetRange(key string, beg int32, end int32) ([]string, error){
 
 	if beg > end{
 		str := fmt.Sprintf("list: %s begin index > end index ", key)
-		return "", errors.New(str)
+		return []string{}, errors.New(str)
 	}
 
 	s.listMutex.RLock()
@@ -496,23 +498,23 @@ func (s *Cache) LGetRange(key string, beg int, end int) (string, error){
 	m, ok := s.listCaches[key]
 	if !ok {
 		str := fmt.Sprintf("not have key:%s list", key)
-		return "", errors.New(str)
+		return []string{}, errors.New(str)
 	}
 
 	l :=len(m.Data)
-	if beg >= l{
+	if beg >= int32(l){
 		str := fmt.Sprintf("list: %s out off range ", key)
-		return "", errors.New(str)
+		return []string{}, errors.New(str)
 	}
 
 	min := int(math.Min(float64(end), float64(l)))
 	arr := m.Data[beg:min]
 
-	d, err := json.MarshalIndent(arr, "", "")
-	return string(d), err
+	//d, err := json.MarshalIndent(arr, "", "")
+	return arr, nil
 }
 
-func (s *Cache) LDelRange(key string, beg int, end int)  error{
+func (s *Cache) LDelRange(key string, beg int32, end int32)  error{
 
 	if beg > end{
 		str := fmt.Sprintf("list: %s begin index > end index ", key)
@@ -530,7 +532,7 @@ func (s *Cache) LDelRange(key string, beg int, end int)  error{
 	}
 
 	l :=len(m.Data)
-	if beg >= l{
+	if beg >= int32(l){
 		str := fmt.Sprintf("list: %s out off range ", key)
 		return errors.New(str)
 	}
@@ -635,7 +637,7 @@ func (s *Cache) persistent()  {
 func (s *Cache) lSaveDataBaseKV(key string, v ListValue) {
 	b := encodeList(v)
 
-	fullPath := filepath.Join(ValueDBPath, key)
+	fullPath := filepath.Join(ListDBPath, key)
 	path, _ := filepath.Split(fullPath)
 
 	createDir(path)

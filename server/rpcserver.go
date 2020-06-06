@@ -1,7 +1,6 @@
 package server
 
 import (
-	context2 "context"
 	"fmt"
 	"github.com/llr104/lightkv/cache"
 	"github.com/llr104/lightkv/pb"
@@ -138,7 +137,7 @@ func (s *rpcHandler) onOP(op cache.OpType, before cache.DataString, after cache.
 					a := after.(*cache.ListValue)
 					afterStr = a.ToString()
 				}
-				_, ok := proxy.watchMap[b.Key]
+				_, ok := proxy.watchList[b.Key]
 				if ok {
 					//通知推送
 					rsp := bridge.PublishRsp{DataType:cache.ListData, HmKey:"", Key: b.Key,
@@ -273,32 +272,32 @@ func (s *server) UnWatchKey(ctx context.Context, in *bridge.WatchReq) (*bridge.W
 	return &bridge.WatchRsp{Key:in.Key}, nil
 }
 
-func (s *server) HMGet(ctx context2.Context, in *bridge.HMGetReq) (*bridge.HMGetRsp, error) {
+func (s *server) HMGet(ctx context.Context, in *bridge.HMGetReq) (*bridge.HMGetRsp, error) {
 	str, err := s.cache.HMGet(in.HmKey)
 	return &bridge.HMGetRsp{HmKey:in.HmKey, Value:str}, err
 }
 
-func (s *server) HMGetMember(ctx context2.Context, in *bridge.HMGetMemberReq) (*bridge.HMGetMemberRsp, error) {
+func (s *server) HMGetMember(ctx context.Context, in *bridge.HMGetMemberReq) (*bridge.HMGetMemberRsp, error) {
 	str, err := s.cache.HMGetMember(in.HmKey, in.Key)
 	return &bridge.HMGetMemberRsp{HmKey:in.HmKey, Key:in.Key,  Value:str}, err
 }
 
-func (s *server) HMPut(ctx context2.Context, in *bridge.HMPutReq) (*bridge.HMPutRsp, error) {
+func (s *server) HMPut(ctx context.Context, in *bridge.HMPutReq) (*bridge.HMPutRsp, error) {
 	err := s.cache.HMPut(in.HmKey, in.GetKey(), in.GetValue(), in.Expire)
 	return &bridge.HMPutRsp{HmKey:in.HmKey, Key:in.Key,  Value:in.Value}, err
 }
 
-func (s *server) HMDel(ctx context2.Context, in *bridge.HMDelReq) (*bridge.HMDelRsp, error) {
+func (s *server) HMDel(ctx context.Context, in *bridge.HMDelReq) (*bridge.HMDelRsp, error) {
 	err := s.cache.HMDel(in.HmKey)
 	return &bridge.HMDelRsp{HmKey:in.HmKey}, err
 }
 
-func (s *server) HMDelMember(ctx context2.Context, in *bridge.HMDelMemberReq) (*bridge.HMDelMemberRsp, error) {
+func (s *server) HMDelMember(ctx context.Context, in *bridge.HMDelMemberReq) (*bridge.HMDelMemberRsp, error) {
 	err := s.cache.HMDelMember(in.HmKey, in.Key)
 	return &bridge.HMDelMemberRsp{HmKey:in.HmKey}, err
 }
 
-func (s *server) HMWatch(ctx context2.Context, in *bridge.HMWatchReq) (*bridge.HMWatchRsp, error) {
+func (s *server) HMWatch(ctx context.Context, in *bridge.HMWatchReq) (*bridge.HMWatchRsp, error) {
 	s.handler.mutex.Lock()
 	cid := ctx.Value("curID")
 	proxy, ok := s.handler.proxyMap[cid.(string)]
@@ -316,7 +315,7 @@ func (s *server) HMWatch(ctx context2.Context, in *bridge.HMWatchReq) (*bridge.H
 
 }
 
-func (s *server) HMUnWatchHM(ctx context2.Context, in *bridge.HMWatchReq) (*bridge.HMWatchRsp, error) {
+func (s *server) HMUnWatchHM(ctx context.Context, in *bridge.HMWatchReq) (*bridge.HMWatchRsp, error) {
 	s.handler.mutex.Lock()
 	cid := ctx.Value("curID")
 	proxy, ok := s.handler.proxyMap[cid.(string)]
@@ -332,6 +331,58 @@ func (s *server) HMUnWatchHM(ctx context2.Context, in *bridge.HMWatchReq) (*brid
 	return &bridge.HMWatchRsp{HmKey:in.HmKey, Key:in.Key}, nil
 }
 
+/*
+List
+ */
+func (s *server) LGet(ctx context.Context, in *bridge.LGetReq) (*bridge.LGetRsp, error) {
+	 arr, err := s.cache.LGet(in.Key)
+	 return &bridge.LGetRsp{Key:in.Key, Value:arr}, err
+}
+
+func (s *server) LGetRange(ctx context.Context, in *bridge.LGetRangeReq) (*bridge.LGetRangeRsp, error) {
+	arr, err := s.cache.LGetRange(in.Key, in.BegIndex, in.EndIndex)
+	return &bridge.LGetRangeRsp{Key:in.Key, Value:arr}, err
+}
+
+func (s *server) LPut(ctx context.Context,in *bridge.LPutReq) (*bridge.LPutRsp, error) {
+	err := s.cache.LPut(in.Key, in.Value, in.Expire)
+	return &bridge.LPutRsp{Key:in.Key}, err
+}
+
+func (s *server) LDel(ctx context.Context, in *bridge.LDelReq) (*bridge.LDelRsp, error) {
+	err := s.cache.LDel(in.Key)
+	return &bridge.LDelRsp{Key:in.Key}, err
+}
+
+func (s *server) LDelRange(ctx context.Context,in *bridge.LDelRangeReq) (*bridge.LDelRangeRsp, error) {
+	err := s.cache.LDelRange(in.Key, in.BegIndex, in.EndIndex)
+	return &bridge.LDelRangeRsp{Key:in.Key}, err
+}
+
+func (s *server) LWatch(ctx context.Context,in *bridge.LWatchReq) (*bridge.LWatchRsp, error) {
+	s.handler.mutex.Lock()
+	cid := ctx.Value("curID")
+	proxy, ok := s.handler.proxyMap[cid.(string)]
+	if ok {
+		proxy.watchList[in.Key] = in.Key
+	}
+
+	s.handler.mutex.Unlock()
+	return &bridge.LWatchRsp{Key:in.Key}, nil
+
+}
+
+func (s *server) LUnWatchHM(ctx context.Context, in *bridge.LWatchReq) (*bridge.LWatchRsp, error) {
+	s.handler.mutex.Lock()
+	cid := ctx.Value("curID")
+	proxy, ok := s.handler.proxyMap[cid.(string)]
+	if ok {
+		delete(proxy.watchList, in.Key)
+	}
+
+	s.handler.mutex.Unlock()
+	return &bridge.LWatchRsp{Key:in.Key}, nil
+}
 
 func NewRpcServer(cache *cache.Cache)  {
 	listen, err := net.Listen("tcp", ":9980")
