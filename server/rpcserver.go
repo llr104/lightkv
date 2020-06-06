@@ -48,7 +48,10 @@ func (s* rpcHandler) TagConn(ctx context.Context, stat *stats.ConnTagInfo) conte
 	if s.curID >2^15{
 		s.curID = 0
 	}
-	s.proxyMap[tag] = &rpcProxy{watchKey:make(map[string]string), watchMap:make(map[string]map[string]string)}
+	s.proxyMap[tag] = &rpcProxy{watchKey:make(map[string]string),
+								watchMap:make(map[string]map[string]string),
+								watchList:make(map[string]string),
+	}
 	fmt.Printf("TagConn:%s\n", tag)
 
 	return context.WithValue(ctx, "curID", tag)
@@ -60,10 +63,10 @@ func (s* rpcHandler) HandleConn(ctx context.Context, stat stats.ConnStats)  {
 	case *stats.ConnBegin:
 		fmt.Println("HandleConn begin")
 		/*
-		s.mutex.Lock()
+		s.valueMutex.Lock()
 		cid := ctx.value("curID")
 		proxy, ok := s.proxyMap[cid.(string)]
-		s.mutex.Unlock()
+		s.valueMutex.Unlock()
 		 */
 
 	case *stats.ConnEnd:
@@ -84,18 +87,25 @@ func (s* rpcHandler) HandleConn(ctx context.Context, stat stats.ConnStats)  {
 
 }
 
-func (s *rpcHandler) onOP(op cache.OpType, item cache.DataString)  {
+func (s *rpcHandler) onOP(op cache.OpType, before cache.DataString, after cache.DataString)  {
 	//fmt.Printf("key onOP:%s\n", item.Key)
 
-	switch item.(type) {
+	switch before.(type) {
 		case *cache.Value:
 			s.mutex.Lock()
 			for _, proxy := range s.proxyMap{
-				v := item.(*cache.Value)
-				_, ok := proxy.watchKey[v.Key]
+				b := before.(*cache.Value)
+				afterStr := ""
+				if after != nil{
+					a := after.(*cache.Value)
+					afterStr = a.ToString()
+				}
+
+				_, ok := proxy.watchKey[b.Key]
 				if ok {
 					//通知推送
-					rsp := bridge.PublishRsp{HmKey:"", Key:v.Key, Value:v.ToString(), Type:int32(op)}
+					rsp := bridge.PublishRsp{DataType:cache.ValueData, HmKey:"", Key: b.Key,
+						BeforeValue: b.ToString(), AfterValue:afterStr, Type:int32(op)}
 					proxy.sendChan <- rsp
 				}
 			}
@@ -103,11 +113,36 @@ func (s *rpcHandler) onOP(op cache.OpType, item cache.DataString)  {
 		case *cache.MapValue:{
 			s.mutex.Lock()
 			for _, proxy := range s.proxyMap{
-				v := item.(*cache.MapValue)
-				_, ok := proxy.watchMap[v.Key]
+				b := before.(*cache.MapValue)
+				afterStr := ""
+				if after != nil{
+					a := after.(*cache.MapValue)
+					afterStr = a.ToString()
+				}
+				_, ok := proxy.watchMap[b.Key]
 				if ok {
 					//通知推送
-					rsp := bridge.PublishRsp{HmKey:v.Key, Key: "", Value:v.ToString(), Type:int32(op)}
+					rsp := bridge.PublishRsp{DataType:cache.MapData, HmKey:b.Key, Key: "",
+						BeforeValue: b.ToString(), AfterValue:afterStr, Type:int32(op)}
+					proxy.sendChan <- rsp
+				}
+			}
+			s.mutex.Unlock()
+		}
+		case *cache.ListValue:{
+			s.mutex.Lock()
+			for _, proxy := range s.proxyMap{
+				b := before.(*cache.ListValue)
+				afterStr := ""
+				if after != nil{
+					a := after.(*cache.ListValue)
+					afterStr = a.ToString()
+				}
+				_, ok := proxy.watchMap[b.Key]
+				if ok {
+					//通知推送
+					rsp := bridge.PublishRsp{DataType:cache.ListData, HmKey:"", Key: b.Key,
+						BeforeValue: b.ToString(), AfterValue:afterStr, Type:int32(op)}
 					proxy.sendChan <- rsp
 				}
 			}

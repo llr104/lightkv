@@ -64,8 +64,10 @@ message PublishReq {
 message PublishRsp {
     string hmKey = 1;
     string key = 2;
-    string value = 3;
-    int32  type = 4;
+    string beforeValue = 3;
+    string afterValue = 4;
+    int32  type = 5;
+    int32  dataType = 6;
 }
 
 message WatchReq {

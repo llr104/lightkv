@@ -11,19 +11,28 @@ import (
 	"time"
 )
 
+type WatchKeyFunc func(string, string, string, cache.OpType)
+type WatchMapFunc func(string, string, string, string, cache.OpType)
+type WatchListFunc func(string, string, string, cache.OpType)
+
 type rpcClient struct {
-	c        bridge.RpcBridgeClient
-	conn     *grpc.ClientConn
-	mutex    sync.Mutex
-	mapMutex    sync.Mutex
-	watchKey map[string]func(string, string, cache.OpType)
-	watchMap map[string]map[string]func(string, string, string, cache.OpType)
+	c          bridge.RpcBridgeClient
+	conn       *grpc.ClientConn
+	valueMutex sync.Mutex
+	mapMutex   sync.Mutex
+	listMutex  sync.Mutex
+
+	watchKey 	map[string]WatchKeyFunc
+	watchMap 	map[string]map[string]WatchMapFunc
+	watchList 	map[string]WatchListFunc
+
 }
 
 func NewClient() *rpcClient{
 
-	s := rpcClient{watchKey: make(map[string]func(string, string, cache.OpType)),
-		watchMap:make(map[string]map[string]func(string, string, string, cache.OpType))}
+	s := rpcClient{watchKey: make(map[string]WatchKeyFunc),
+		watchMap:make(map[string]map[string]WatchMapFunc),
+		watchList:make(map[string]WatchListFunc)}
 
 	conn, err := grpc.Dial("127.0.0.1:9980", grpc.WithInsecure())
 	if err != nil {
@@ -66,38 +75,61 @@ func (s*rpcClient) Start() {
 				if err != nil{
 					//log.Printf("err:%s\n", err.Error())
 				}else{
-					//log.Printf("data.HmKey: %s,data.Key: %s,data.Value: %s,data.Type: %d\n", data.HmKey, data.Key, data.Value, data.Type)
-					if data.HmKey == ""{
-						s.mutex.Lock()
+
+					if data.DataType == cache.ValueData{
+
+						s.valueMutex.Lock()
 						f, ok := s.watchKey[data.Key]
 						if ok {
-							f(data.Key, data.Value, cache.OpType(data.Type))
+							f(data.Key, data.BeforeValue, data.AfterValue, cache.OpType(data.Type))
 						}
-						s.mutex.Unlock()
-					}else{
+						s.valueMutex.Unlock()
+
+					}else if data.DataType == cache.MapData {
+
 						s.mapMutex.Lock()
 						m, ok := s.watchMap[data.HmKey]
 						if ok {
 
-							dm := make(map[string]string)
-							e := json.Unmarshal([]byte(data.Value), &dm)
-							if e != nil{
+							afterMap := make(map[string]string)
+							if e := json.Unmarshal([]byte(data.AfterValue), &afterMap); e != nil{
 								return
 							}
 
-							//按key值回调
-							for dk, dv := range dm{
-								if f, ok := m[dk]; ok{
-									f(data.HmKey, dk, dv, cache.OpType(data.Type))
+							beforeMap := make(map[string]string)
+							if e := json.Unmarshal([]byte(data.BeforeValue), &beforeMap); e != nil{
+								return
+							}
+
+							//按key值回调,变化了的key才会回调
+							for k, f := range m {
+								if k == ""{
+									continue
+								}
+
+								bv, _ := beforeMap[k]
+								av, _ := afterMap[k]
+
+								if bv != av{
+									f(data.HmKey, k, bv, av, cache.OpType(data.Type))
 								}
 							}
 
 							//全量回调
 							if f, ok := m[""]; ok{
-								f(data.HmKey, "", data.Value, cache.OpType(data.Type))
+								f(data.HmKey, "", data.BeforeValue, data.AfterValue, cache.OpType(data.Type))
 							}
 						}
 						s.mapMutex.Unlock()
+
+					}else if data.DataType == cache.ListData{
+
+						s.listMutex.Lock()
+						f, ok := s.watchList[data.Key]
+						if ok {
+							f(data.Key, data.BeforeValue, data.AfterValue, cache.OpType(data.Type))
+						}
+						s.listMutex.Unlock()
 					}
 
 				}
@@ -174,14 +206,14 @@ func (s *rpcClient) HMDelMember(hmKey string, key string) error {
 	return err
 }
 
-func (s*rpcClient) WatchKey(key string, watchFunc func(string, string, cache.OpType)) error{
+func (s*rpcClient) WatchKey(key string, watchFunc func(string, string, string, cache.OpType)) error{
 	_, err := s.c.WatchKey(context.Background(), &bridge.WatchReq{Key: key})
 	if err != nil{
 		log.Printf("WatchKey error: %s\n", err.Error())
 	}else{
-		s.mutex.Lock()
+		s.valueMutex.Lock()
 		s.watchKey[key] = watchFunc
-		s.mutex.Unlock()
+		s.valueMutex.Unlock()
 	}
 	return err
 }
@@ -191,9 +223,9 @@ func (s*rpcClient) UnWatchKey(key string) error{
 	if err != nil{
 		log.Printf("UnWatchKey error: %s\n", err.Error())
 	}else{
-		s.mutex.Lock()
+		s.valueMutex.Lock()
 		delete(s.watchKey, key)
-		s.mutex.Unlock()
+		s.valueMutex.Unlock()
 	}
 	return err
 }
@@ -202,7 +234,7 @@ func (s*rpcClient) UnWatchKey(key string) error{
 hmKey: map key
 key:元素key， 空为监听整个map
 */
-func (s *rpcClient) HMWatch(hmKey string, key string, watchFunc func(string, string, string, cache.OpType)) error {
+func (s *rpcClient) HMWatch(hmKey string, key string, watchFunc WatchMapFunc) error {
 	_, err := s.c.HMWatch(context.Background(), &bridge.HMWatchReq{HmKey:hmKey, Key:key})
 	if err != nil{
 		log.Printf("HMWatch error: %s\n", err.Error())
@@ -210,7 +242,7 @@ func (s *rpcClient) HMWatch(hmKey string, key string, watchFunc func(string, str
 		s.mapMutex.Lock()
 		m, ok := s.watchMap[hmKey]
 		if !ok {
-			m = make(map[string] func(string, string, string, cache.OpType))
+			m = make(map[string] WatchMapFunc)
 		}
 		m[key] = watchFunc
 		s.watchMap[hmKey] = m

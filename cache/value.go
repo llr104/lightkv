@@ -6,6 +6,11 @@ type DataString interface {
 	ToString() string
 }
 
+const (
+	ValueData int32 = 0
+	MapData   int32 = 1
+	ListData  int32 = 2
+)
 
 type Value struct{
 	Key    string       		`json:"Key"`
@@ -28,3 +33,13 @@ func (s*MapValue) ToString() string{
 	return string(data)
 }
 
+type ListValue struct {
+	Key    string       		`json:"Key"`
+	Expire int64				`json:"expire"`
+	Data   []string				`json:"data"`
+}
+
+func (s*ListValue) ToString() string{
+	data, _ := json.MarshalIndent(s.Data, "", "    ")
+	return string(data)
+}

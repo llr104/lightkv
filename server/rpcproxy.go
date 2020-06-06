@@ -12,4 +12,5 @@ type rpcProxy struct {
 	sendChan chan bridge.PublishRsp
 	watchKey map[string]string
 	watchMap map[string]map[string]string
+	watchList map[string]string
 }

@@ -27,28 +27,28 @@ func main() {
 	log.Printf("删除 test2 之后的值:%s", c.Get("test2"))
 
 	//监听key值，发生变化回调通知
-	c.WatchKey("watch1", func(k string, v string, t cache.OpType) {
+	c.WatchKey("watch1", func(k string, beforeV string, afterV string, t cache.OpType) {
 		if t == cache.Add{
-			log.Printf("监听的 key:%s 新增了, 值为:%s", k, v)
+			log.Printf("监听的 key:%s 新增了, 值为:%s", k, afterV)
 		}else if t == cache.Del{
-			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, v)
+			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, beforeV)
 		}
 	})
 
 	//key值发生变化回调通知
-	c.WatchKey("unwatch", func(k string, v string, t cache.OpType) {
+	c.WatchKey("unwatch", func(k string, beforeV string, afterV string, t cache.OpType) {
 		if t == cache.Add{
-			log.Printf("监听的 key:%s 新增了, 值为:%s", k, v)
+			log.Printf("监听的 key:%s 新增了, 值为:%s", k, afterV)
 		}else if t == cache.Del{
-			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, v)
+			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, beforeV)
 		}
 	})
 
-	c.WatchKey("watchdel", func(k string, v string, t cache.OpType) {
+	c.WatchKey("watchdel", func(k string, beforeV string, afterV string, t cache.OpType) {
 		if t == cache.Add{
-			log.Printf("监听的 key:%s 新增了, 值为:%s", k, v)
+			log.Printf("监听的 key:%s 新增了, 值为:%s", k, afterV)
 		}else if t == cache.Del{
-			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, v)
+			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, beforeV)
 		}
 	})
 
@@ -63,6 +63,8 @@ func main() {
 	c.Put("watch1", "this is watch1", 0)
 	c.Put("unwatch", "this is after unwatch", 0)
 	c.Put("watchdel", "this is watchdel", 0)
+
+	log.Printf("获取 watchdel:%s", c.Get("watchdel"))
 
 	c.Del("watchdel")
 
@@ -87,50 +89,50 @@ func main() {
 	log.Printf("删除hmtest1 map后，hmtest1的值:\n%s", c.HMGet("hmtest1"))
 
 
-	c.HMWatch("hmtest2", "", func(hk string, k string, v string, t cache.OpType) {
+	c.HMWatch("hmtest2", "", func(hk string, k string, beforeV string, afterV string, t cache.OpType) {
 		if k == ""{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, beforeV)
 			}
 		}else{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, beforeV)
 			}
 		}
 	})
 
-	c.HMWatch("hmtest2", "k1", func(hk string, k string, v string, t cache.OpType) {
+	c.HMWatch("hmtest2", "k1", func(hk string, k string, beforeV string, afterV string, t cache.OpType) {
 		if k == ""{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, beforeV)
 			}
 		}else{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, beforeV)
 			}
 		}
 	})
 
-	c.HMWatch("hmtest2", "", func(hk string, k string, v string, t cache.OpType) {
+	c.HMWatch("hmtest2", "", func(hk string, k string, beforeV string, afterV string, t cache.OpType) {
 		if k == ""{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, beforeV)
 			}
 		}else{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, beforeV)
 			}
 		}
 
@@ -139,7 +141,7 @@ func main() {
 
 	log.Printf("新增hmtest2 map")
 	//新增hmtest2 map
-	c.HMPut("hmtest2", keys, vals, 20)
+	c.HMPut("hmtest2", keys, vals, 5)
 
 	log.Printf("获取 hmtest2 map的值:\n%s", c.HMGet("hmtest2"))
 
