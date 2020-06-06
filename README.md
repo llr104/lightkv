@@ -204,3 +204,4 @@ func main() {
 - 支持list、set 结构存储
 - 支持配置缓存占用大小，lru算法
 - 分布式
+- terminal客户端
