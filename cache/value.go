@@ -13,7 +13,7 @@ const (
 )
 
 type Value struct{
-	Key    string       		`json:"Key"`
+	Key    string       		`json:"key"`
 	Expire int64				`json:"expire"`
 	Data   string				`json:"data"`
 }
@@ -23,7 +23,7 @@ func (s*Value) ToString() string{
 }
 
 type MapValue struct {
-	Key    string       		`json:"Key"`
+	Key    string       		`json:"key"`
 	Expire int64				`json:"expire"`
 	Data   map[string] string	`json:"data"`
 }
@@ -34,7 +34,7 @@ func (s*MapValue) ToString() string{
 }
 
 type ListValue struct {
-	Key    string       		`json:"Key"`
+	Key    string       		`json:"key"`
 	Expire int64				`json:"expire"`
 	Data   []string				`json:"data"`
 }

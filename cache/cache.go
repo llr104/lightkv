@@ -467,7 +467,7 @@ func (s *Cache) LPut(key string, value []string, expire int64) error{
 func (s *Cache) LDel(key string) error{
 	s.listMutex.Lock()
 	defer s.listMutex.Unlock()
-	s.del(key)
+	s.lDel(key)
 	return nil
 }
 
@@ -481,8 +481,7 @@ func (s *Cache) LGet(key string) ([]string, error){
 	}
 
 	return m.Data, nil
-	//d, err := json.MarshalIndent(m.Data, "", "")
-	//return string(d), err
+
 }
 
 func (s *Cache) LGetRange(key string, beg int32, end int32) ([]string, error){
@@ -510,7 +509,6 @@ func (s *Cache) LGetRange(key string, beg int32, end int32) ([]string, error){
 	min := int(math.Min(float64(end), float64(l)))
 	arr := m.Data[beg:min]
 
-	//d, err := json.MarshalIndent(arr, "", "")
 	return arr, nil
 }
 

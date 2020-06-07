@@ -18,8 +18,15 @@ const HGet = "/hget/"
 const HPush = "/hput"
 const HGetM = "/hgetm/"
 const HDelM = "/hdelm/"
-const HDelete = "/hdel/"
+const HDel = "/hdel/"
 const HDump = "/hdump"
+
+const LGet = "/lget/"
+const LGetRange = "/lgetr/"
+const LPush = "/lput"
+const LDel = "/ldel/"
+const LDelRange = "/ldelr/"
+const LDump = "/ldump"
 
 type apiServer struct {
 	cache * cache.Cache
@@ -58,12 +65,24 @@ func (s *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.hGetM(w, r)
 	}else if strings.HasPrefix(pathLower, HPush){
 		s.hPush(w, r)
-	}else if strings.HasPrefix(pathLower, HDelete){
+	}else if strings.HasPrefix(pathLower, HDel){
 		s.hDel(w, r)
 	}else if strings.HasPrefix(pathLower, HDelM){
 		s.hDelM(w, r)
 	}else if strings.HasPrefix(pathLower, HDump){
 		s.hDump(w, r)
+	}else if strings.HasPrefix(pathLower, LGet){
+		s.lGet(w, r)
+	}else if strings.HasPrefix(pathLower, LGetRange){
+		s.lGetRange(w, r)
+	}else if strings.HasPrefix(pathLower, LPush){
+		s.lPush(w, r)
+	}else if strings.HasPrefix(pathLower, LDel){
+		s.lDel(w, r)
+	}else if strings.HasPrefix(pathLower, LDelRange){
+		s.lDelRange(w, r)
+	}else if strings.HasPrefix(pathLower, LDump){
+		s.lDump(w, r)
 	}else{
 		r := Rsp{Key: "", Value:"", Success:false}
 		data, _ := json.Marshal(r)
@@ -84,7 +103,7 @@ func (s *apiServer) get(w http.ResponseWriter, r *http.Request){
 			data, _ := json.Marshal(r)
 			w.Write(data)
 		}else{
-			r := Rsp{Key: parts[0], Value:"", Success:true}
+			r := Rsp{Key: parts[0], Value:"", Success:false}
 			data, _ := json.Marshal(r)
 			w.Write(data)
 		}
@@ -161,7 +180,7 @@ func (s *apiServer) hGet(w http.ResponseWriter, r *http.Request){
 				data, _ := json.Marshal(r)
 				w.Write(data)
 			}else{
-				r := Rsp{Key: parts[0], Value:"", Success:true}
+				r := Rsp{Key: parts[0], Value:"", Success:false}
 				data, _ := json.Marshal(r)
 				w.Write(data)
 			}
@@ -181,7 +200,7 @@ func (s *apiServer) hGetM(w http.ResponseWriter, r *http.Request){
 			data, _ := json.Marshal(r)
 			w.Write(data)
 		}else{
-			r := Rsp{Key: parts[1], Value:"", Success:true}
+			r := Rsp{Key: parts[1], Value:"", Success:false}
 			data, _ := json.Marshal(r)
 			w.Write(data)
 		}
@@ -236,7 +255,7 @@ func (s *apiServer) hPush(w http.ResponseWriter, r *http.Request){
 }
 
 func (s *apiServer) hDel(w http.ResponseWriter, r *http.Request){
-	parts := strings.Split(r.URL.Path[len(HDelete):], "/")
+	parts := strings.Split(r.URL.Path[len(HDel):], "/")
 	if len(parts) != 1{
 		r := Rsp{Key: parts[0], Value:"", Success:false}
 		data, _ := json.Marshal(r)
@@ -265,6 +284,158 @@ func (s *apiServer) hDelM(w http.ResponseWriter, r *http.Request){
 
 func (s *apiServer) hDump(w http.ResponseWriter, r *http.Request){
 	m := s.cache.MapCaches()
+	data, _ := json.MarshalIndent(m, "", "    ")
+	w.Write(data)
+}
+
+func (s *apiServer) lGet(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.Path[len(LGet):], "/")
+	if len(parts) != 1{
+		r := Rsp{Key: "", Value:nil, Success:false}
+		data, _ := json.Marshal(r)
+		http.Error(w, string(data), http.StatusBadRequest)
+	}else{
+		v, err := s.cache.LGet(parts[0])
+		if err == nil {
+			r := Rsp{Key: parts[0], Value:v, Success:true}
+			data, _ := json.Marshal(r)
+			w.Write(data)
+		}else{
+			r := Rsp{Key: parts[0], Value:"", Success:false}
+			data, _ := json.Marshal(r)
+			w.Write(data)
+		}
+	}
+}
+
+func (s *apiServer) lGetRange(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.Path[len(LGetRange):], "/")
+	if len(parts) != 1{
+		r := Rsp{Key: "", Value:nil, Success:false}
+		data, _ := json.Marshal(r)
+		http.Error(w, string(data), http.StatusBadRequest)
+	}else{
+		vars := r.URL.Query()
+		beg, ok1 := vars["begIndex"]
+		end, ok2 := vars["endIndex"]
+		if ok1 == false || ok2 == false{
+			r := Rsp{Key: "", Value:nil, Success:false}
+			data, _ := json.Marshal(r)
+			http.Error(w, string(data), http.StatusBadRequest)
+		}else{
+			begInt, err1 := strconv.Atoi(beg[0])
+			endInt, err2 := strconv.Atoi(end[0])
+
+			if err1 != nil || err2 != nil{
+				r := Rsp{Key: "", Value:nil, Success:false}
+				data, _ := json.Marshal(r)
+				http.Error(w, string(data), http.StatusBadRequest)
+			}else{
+				v, err := s.cache.LGetRange(parts[0], int32(begInt), int32(endInt))
+				if err == nil {
+					r := Rsp{Key: parts[0], Value:v, Success:true}
+					data, _ := json.Marshal(r)
+					w.Write(data)
+				}else{
+					r := Rsp{Key: parts[0], Value:"", Success:false}
+					data, _ := json.Marshal(r)
+					w.Write(data)
+				}
+			}
+		}
+	}
+}
+
+func (s *apiServer) lPush(w http.ResponseWriter, r *http.Request) {
+	vars := r.URL.Query()
+	key, ok1 := vars["key"]
+	value, ok2 := vars["value"]
+	expire, ok3 := vars["expire"]
+
+	if ok1 == false {
+		r := Rsp{Key: "", Value:"", Success:false}
+		data, _ := json.Marshal(r)
+		http.Error(w, string(data), http.StatusBadRequest)
+		return
+	}
+
+	if ok2 == false {
+		r := Rsp{Key: key[0], Value:"", Success:false}
+		data, _ := json.Marshal(r)
+		http.Error(w, string(data), http.StatusBadRequest)
+		return
+	}
+
+	if ok3{
+		int64, err := strconv.ParseInt(expire[0], 10, 64)
+		if err == nil{
+			s.cache.LPut(key[0], value, int64)
+		}else{
+			s.cache.LPut(key[0], value, cache.ExpireForever)
+		}
+	}else{
+		s.cache.LPut(key[0], value, cache.ExpireForever)
+	}
+
+	rsp := Rsp{Key: key[0], Value:value, Success:true}
+	data, _ := json.Marshal(rsp)
+	w.Write(data)
+}
+
+func (s *apiServer) lDel(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.Path[len(LDel):], "/")
+	if len(parts) != 1{
+		r := Rsp{Key: parts[0], Value:"", Success:false}
+		data, _ := json.Marshal(r)
+		http.Error(w, string(data), http.StatusBadRequest)
+	}else{
+		s.cache.LDel(parts[0])
+		r := Rsp{Key: parts[0], Value:"", Success:true}
+		data, _ := json.Marshal(r)
+		w.Write(data)
+	}
+}
+
+func (s *apiServer) lDelRange(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(r.URL.Path[len(LDelRange):], "/")
+	if len(parts) != 1{
+		r := Rsp{Key: "", Value:nil, Success:false}
+		data, _ := json.Marshal(r)
+		http.Error(w, string(data), http.StatusBadRequest)
+	}else{
+		vars := r.URL.Query()
+		beg, ok1 := vars["begIndex"]
+		end, ok2 := vars["endIndex"]
+		if ok1 == false || ok2 == false{
+			r := Rsp{Key: "", Value:nil, Success:false}
+			data, _ := json.Marshal(r)
+			http.Error(w, string(data), http.StatusBadRequest)
+		}else{
+			begInt, err1 := strconv.Atoi(beg[0])
+			endInt, err2 := strconv.Atoi(end[0])
+
+			if err1 != nil || err2 != nil{
+				r := Rsp{Key: "", Value:nil, Success:false}
+				data, _ := json.Marshal(r)
+				http.Error(w, string(data), http.StatusBadRequest)
+			}else{
+				err := s.cache.LDelRange(parts[0], int32(begInt), int32(endInt))
+				if err == nil {
+					r := Rsp{Key: parts[0], Value:"", Success:true}
+					data, _ := json.Marshal(r)
+					w.Write(data)
+				}else{
+					r := Rsp{Key: parts[0], Value:"", Success:false}
+					data, _ := json.Marshal(r)
+					w.Write(data)
+				}
+			}
+		}
+	}
+}
+
+func (s *apiServer) lDump(w http.ResponseWriter, r *http.Request){
+	m := s.cache.ListCaches()
 	data, _ := json.MarshalIndent(m, "", "    ")
 	w.Write(data)
 }

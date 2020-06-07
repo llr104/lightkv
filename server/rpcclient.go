@@ -323,7 +323,7 @@ func (s*rpcClient) LPut(key string, value [] string, expire int64) error{
 func (s*rpcClient) LGet(key string)([]string, error){
 	rsp, err := s.c.LGet(context.Background(), &bridge.LGetReq{Key:key})
 	if err != nil{
-		log.Printf("LGet error: %s\n", err.Error())
+		log.Printf("lGet error: %s\n", err.Error())
 	}
 	return rsp.Value, err
 }
@@ -331,7 +331,7 @@ func (s*rpcClient) LGet(key string)([]string, error){
 func (s*rpcClient) LGetRange(key string, begIndex int32, endIndex int32) ([]string, error){
 	rsp, err := s.c.LGetRange(context.Background(), &bridge.LGetRangeReq{Key:key, BegIndex:begIndex, EndIndex:endIndex})
 	if err != nil{
-		log.Printf("LGetRange error: %s\n", err.Error())
+		log.Printf("lGetRange error: %s\n", err.Error())
 	}
 	return rsp.Value, err
 }
