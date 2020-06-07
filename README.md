@@ -11,8 +11,9 @@ go run main/server.go
   
 - 会启动一个api服务(http://localhost:9981) 和一个rpc服务(9980端口)
 
-- api 提供的方法有 put、del、get、hput、hget、hgetm、hdelm、hdel
+- api 提供的方法有 put、del、get、hput、hget、hgetm、hdelm、hdel、lget、lgetr、lput、ldel、ldelr
 
+### api普通字符串(put、del、get)
 - http://localhost:9981/put?key=add1&value=addvalue1 api新增一条kv，key为add1,value为addvalue1，kv不过期 
 
 - http://localhost:9981/put?key=add2&value=addvalue2&expire=100 api新增一条kv，key为add2,value为addvalue2，100秒后kv过期
@@ -21,6 +22,7 @@ go run main/server.go
 
 - http://localhost:9981/get/add1 api获取key为add1的kv
 
+### api map(hput、hget、hgetm、hdelm、hdel)
 - http://localhost:9981/hput?hmkey=hm1&key=k1&value=v1&key=k2&value=v2 往hm1的map添加两个元素{"k1":"v1","k2":"v2"}
 
 - http://localhost:9981/hget/hm1 获取hm1的map
@@ -31,6 +33,18 @@ go run main/server.go
 
 - http://localhost:9981/hdel/hm1 删除hm1的map
 
+### api list(lget、lgetr、lput、ldel、ldelr)
+- http://localhost:9981/lput?key=test&value=a&value=b&value=c&value=d 往test的list添加两个元素{"a":"c","c":"d"}
+
+- http://localhost:9981/lget/test 获取test的list
+
+- http://localhost:9981/lgetr/test?begIndex=1&endIndex=3 获取test的list下表1-3的元素
+
+- http://localhost:9981/ldetr/test?begIndex=1&endIndex=3 删除test的list下表1-3的元素
+
+- http://localhost:9981/ldel/test 删除test的list
+
+
 ## 启动测试rpc客户端
 ```bash
   go run main/client.go  
@@ -40,8 +54,8 @@ go run main/server.go
 
 ## rpc 客户端用法
 ### 普通字符串 用法
-```go
-    c := server.NewClient()
+```go 
+	c := server.NewClient()
 	c.Start()
 	defer c.Close()
 
@@ -105,7 +119,7 @@ go run main/server.go
 ### map 用法
 
 ```go
-    c := server.NewClient()
+	c := server.NewClient()
 	c.Start()
 	defer c.Close()
 
@@ -198,7 +212,7 @@ go run main/server.go
 ### list 用法
 
 ```go
-    c := server.NewClient()
+	c := server.NewClient()
 	c.Start()
 	defer c.Close()
 
@@ -246,7 +260,7 @@ go run main/server.go
 ```
 
 ## 后续计划
-- 支持list、set 结构存储
+- 支持list、set 结构存储 (list结构已经支持)
 - 支持配置缓存占用大小，lru算法
 - 分布式
 - terminal客户端
