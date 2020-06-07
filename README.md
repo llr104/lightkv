@@ -39,27 +39,17 @@ go run main/server.go
 
 
 ## rpc 客户端用法
-
+### 普通字符串 用法
 ```go
-package main
-
-import (
-	_ "fmt"
-	"github.com/llr104/lightkv/cache"
-	"github.com/llr104/lightkv/server"
-	"log"
-	"time"
-)
-
-func main() {
-
-	c := server.NewClient()
+    c := server.NewClient()
 	c.Start()
+	defer c.Close()
 
 	//添加kv
 	c.Put("test","test_value",0)
 	c.Put("test1/tttt","test1_value",0)
-	c.Put("test2","test2_value",20)
+	c.Put("test2","test2_value",5)
+	c.Put("test3","test3_value",5)
 
 	v := c.Get("test2")
 	log.Printf("获取 test2 的值:%s", v)
@@ -69,33 +59,31 @@ func main() {
 	log.Printf("删除 test2 之后的值:%s", c.Get("test2"))
 
 	//监听key值，发生变化回调通知
-	c.WatchKey("watch1", func(k string, v string, t cache.OpType) {
+	c.WatchKey("watch1", func(k string, beforeV string, afterV string, t cache.OpType) {
 		if t == cache.Add{
-			log.Printf("监听的 key:%s 新增了, 值为:%s", k, v)
+			log.Printf("监听的 key:%s 新增了, 值为:%s", k, afterV)
 		}else if t == cache.Del{
-			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, v)
+			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, beforeV)
 		}
 	})
 
 	//key值发生变化回调通知
-	c.WatchKey("unwatch", func(k string, v string, t cache.OpType) {
+	c.WatchKey("unwatch", func(k string, beforeV string, afterV string, t cache.OpType) {
 		if t == cache.Add{
-			log.Printf("监听的 key:%s 新增了, 值为:%s", k, v)
+			log.Printf("监听的 key:%s 新增了, 值为:%s", k, afterV)
 		}else if t == cache.Del{
-			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, v)
+			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, beforeV)
 		}
 	})
 
-	c.WatchKey("watchdel", func(k string, v string, t cache.OpType) {
+	c.WatchKey("watchdel", func(k string, beforeV string, afterV string, t cache.OpType) {
 		if t == cache.Add{
-			log.Printf("监听的 key:%s 新增了, 值为:%s", k, v)
+			log.Printf("监听的 key:%s 新增了, 值为:%s", k, afterV)
 		}else if t == cache.Del{
-			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, v)
+			log.Printf("监听的 key:%s 被删除了, 删除前值为:%s", k, beforeV)
 		}
 	})
 
-
-	time.Sleep(time.Second*3)
 
 	c.Put("unwatch", "this is before unwatch", 0)
 
@@ -106,9 +94,21 @@ func main() {
 	c.Put("unwatch", "this is after unwatch", 0)
 	c.Put("watchdel", "this is watchdel", 0)
 
+	log.Printf("获取 watchdel:%s", c.Get("watchdel"))
+
 	c.Del("watchdel")
 
 	log.Printf("获取 unwatch:%s", c.Get("unwatch"))
+
+```
+
+### map 用法
+
+```go
+    c := server.NewClient()
+	c.Start()
+	defer c.Close()
+
 
 	keys := []string{"k1", "k2", "k3"}
 	vals := []string{"v1", "v2", "v3"}
@@ -129,50 +129,50 @@ func main() {
 	log.Printf("删除hmtest1 map后，hmtest1的值:\n%s", c.HMGet("hmtest1"))
 
 
-	c.HMWatch("hmtest2", "", func(hk string, k string, v string, t cache.OpType) {
+	c.HMWatch("hmtest2", "", func(hk string, k string, beforeV string, afterV string, t cache.OpType) {
 		if k == ""{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, beforeV)
 			}
 		}else{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, beforeV)
 			}
 		}
 	})
 
-	c.HMWatch("hmtest2", "k1", func(hk string, k string, v string, t cache.OpType) {
+	c.HMWatch("hmtest2", "k1", func(hk string, k string, beforeV string, afterV string, t cache.OpType) {
 		if k == ""{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, beforeV)
 			}
 		}else{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, beforeV)
 			}
 		}
 	})
 
-	c.HMWatch("hmtest2", "", func(hk string, k string, v string, t cache.OpType) {
+	c.HMWatch("hmtest2", "", func(hk string, k string, beforeV string, afterV string, t cache.OpType) {
 		if k == ""{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 新增了, 值为:\n%s", hk, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, v)
+				log.Printf("监听的 map key:%s, 删除前值为:\n%s", hk, beforeV)
 			}
 		}else{
 			if t == cache.Add{
-				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 新增了, 值为:\n%s", hk, k, afterV)
 			}else if t == cache.Del{
-				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, v)
+				log.Printf("监听的 map key:%s, 元素:%s, 删除前值为:\n%s", hk, k, beforeV)
 			}
 		}
 
@@ -181,10 +181,9 @@ func main() {
 
 	log.Printf("新增hmtest2 map")
 	//新增hmtest2 map
-	c.HMPut("hmtest2", keys, vals, 20)
+	c.HMPut("hmtest2", keys, vals, 5)
 
 	log.Printf("获取 hmtest2 map的值:\n%s", c.HMGet("hmtest2"))
-
 
 	log.Printf("获取hmtest2 map 中k2元素:%s", c.HMGetMember("hmtest2", "k2"))
 
@@ -194,10 +193,56 @@ func main() {
 
 	log.Printf("获取hmtest2 map 中k2元素:%s", c.HMGetMember("hmtest2", "k2"))
 
-	time.Sleep(time.Second*60)
-	c.Close()
+```
 
-}
+### list 用法
+
+```go
+    c := server.NewClient()
+	c.Start()
+	defer c.Close()
+
+	c.LPut("testlist", []string{"1","2", "3"}, 10)
+
+	c.LPut("list1", []string{"a1","a2", "a3"}, 0)
+	arr, _ := c.LGet("list1")
+	log.Printf("获取list1:%v", arr)
+
+	c.LPut("list2", []string{"b1","b2", "b3", "b4", "b5"}, 0)
+	arr, _ = c.LGet("list2")
+	log.Printf("获取list2:%v", arr)
+
+	arr, _ = c.LGetRange("list2", 0,2)
+	log.Printf("获取list2 0-2:元素%v", arr)
+
+	log.Printf("删除list2 1-3位元素")
+	c.LDelRange("list2", 1,3)
+
+	arr, _ = c.LGet("list2")
+	log.Printf("获取list2:%v", arr)
+
+	c.LWatchKey("watchList", func(key string, before []string, after []string, opType cache.OpType) {
+		if opType == cache.Add{
+			log.Printf("%s 新增了，新增前的值为：%v，新增后的值为:%v", key, before, after)
+		}else{
+			log.Printf("%s 删除了，删除前的值为：%v,删除后的值为:%v", key, before, after)
+		}
+	})
+
+	log.Printf("添加watchList")
+	c.LPut("watchList", []string{"c1", "c2", "c3", "c4", "c5"}, 0)
+
+	log.Printf("删除watchList的0-2元素")
+	c.LDelRange("watchList", 0,2)
+
+	log.Printf("取消监听watchList")
+	c.LUnWatchKey("watchList")
+
+	log.Printf("删除watchList")
+	c.LDel("watchList")
+
+	arr, _ = c.LGet("watchList")
+	log.Printf("获取watchList:%v", arr)
 ```
 
 ## 后续计划
