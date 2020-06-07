@@ -60,9 +60,9 @@ type persistentListOp struct {
 }
 
 type Cache struct{
-	caches     map[string]Value
-	mapCaches  map[string]MapValue
-	listCaches map[string]ListValue
+	valueCaches map[string]Value
+	mapCaches   map[string]MapValue
+	listCaches  map[string]ListValue
 
 	checkExpireInterval int
 	persistentChan chan persistentValueOp
@@ -70,7 +70,7 @@ type Cache struct{
 	persistentListChan chan persistentListOp
 
 	opFunction func(OpType, DataString, DataString)
-	mutex      sync.RWMutex
+	valueMutex sync.RWMutex
 	mapMutex   sync.RWMutex
 	listMutex  sync.RWMutex
 }
@@ -83,7 +83,7 @@ var ListDBPath = path.Join(DefaultDBPath, "list")
 
 func NewCache(checkExpireInterval int) *Cache {
 	 c := Cache{
-	 	caches:              make(map[string]Value),
+	 	valueCaches:         make(map[string]Value),
 	 	mapCaches:           make(map[string]MapValue),
 	 	listCaches:          make(map[string]ListValue),
 	 	checkExpireInterval: checkExpireInterval,
@@ -123,7 +123,7 @@ func (s *Cache) loadDB()  {
 			 log.Println(err)
 		 }else {
 		 	 v := decodeValue(data)
-			 s.caches[v.Key] = v
+			 s.valueCaches[v.Key] = v
 		 }
 		return nil
 	})
@@ -164,7 +164,7 @@ func (s *Cache) loadDB()  {
 		return nil
 	})
 
-	log.Printf("load db finish, %d Key-cacheValue ", len(s.caches)+len(s.mapCaches)+len(s.listCaches))
+	log.Printf("load db finish, %d Key-cacheValue ", len(s.valueCaches)+len(s.mapCaches)+len(s.listCaches))
 }
 
 func (s*Cache) SetOnOP(opFunc func(OpType, DataString, DataString)) {
@@ -176,8 +176,8 @@ func (s*Cache) SetOnOP(opFunc func(OpType, DataString, DataString)) {
 value
 */
 func (s*Cache) Put(key string, v string, expire int64 ) error{
-	s.mutex.Lock()
-	old, has := s.caches[key]
+	s.valueMutex.Lock()
+	old, has := s.valueCaches[key]
 	var needUpdate bool = false
 	var val Value
 	if expire == ExpireForever {
@@ -192,7 +192,7 @@ func (s*Cache) Put(key string, v string, expire int64 ) error{
 		}else{
 			needUpdate = true
 		}
-		s.caches[key] = val
+		s.valueCaches[key] = val
 
 		if s.opFunction != nil{
 			s.opFunction(Add, &old, &val)
@@ -201,12 +201,12 @@ func (s*Cache) Put(key string, v string, expire int64 ) error{
 		needUpdate = true
 		e := time.Now().UnixNano() + expire*int64(time.Second)
 		val = Value{Key: key, Data: v, Expire:e}
-		s.caches[key] = val
+		s.valueCaches[key] = val
 		if s.opFunction != nil{
 			s.opFunction(Add, &old, &val)
 		}
 	}
-	s.mutex.Unlock()
+	s.valueMutex.Unlock()
 
 	log.Printf("put Key:%s, Value:%v, expire:%d", key, v, expire)
 
@@ -219,9 +219,9 @@ func (s*Cache) Put(key string, v string, expire int64 ) error{
 }
 
 func (s *Cache) Get(key string) (string, error) {
-	s.mutex.RLock()
-	v, ok := s.caches[key]
-	s.mutex.RUnlock()
+	s.valueMutex.RLock()
+	v, ok := s.valueCaches[key]
+	s.valueMutex.RUnlock()
 	if ok{
 		t := time.Now().UnixNano()
 		if v.Expire != ExpireForever && v.Expire <= t{
@@ -239,18 +239,18 @@ func (s *Cache) Get(key string) (string, error) {
 }
 
 func (s *Cache) Delete (key string) error{
-	s.mutex.Lock()
+	s.valueMutex.Lock()
 	s.del(key)
-	s.mutex.Unlock()
+	s.valueMutex.Unlock()
 	return nil
 }
 
 func (s *Cache) del(key string) {
 
 	log.Printf("del Key:%s", key)
-	old, ok := s.caches[key]
+	old, ok := s.valueCaches[key]
 	if ok{
-		delete(s.caches, key)
+		delete(s.valueCaches, key)
 		val := Value{Key: key, Expire: ExpireForever, Data:""}
 		op := persistentValueOp{item: val, opType:Del}
 		s.persistentChan <- op
@@ -282,9 +282,9 @@ func (s *Cache) delDatabaseKV(key string)  {
 
 
 func (s *Cache) ValueCaches() map[string]Value {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	return s.caches
+	s.valueMutex.Lock()
+	defer s.valueMutex.Unlock()
+	return s.valueCaches
 }
 
 
@@ -331,26 +331,43 @@ func (s *Cache) HMPut(hmKey string, keys [] string,  fields [] string, expire in
 func (s *Cache) HMGet(hmKey string) (string, error){
 	s.mapMutex.RLock()
 	defer s.mapMutex.RUnlock()
-	m, ok := s.mapCaches[hmKey]
+	v, ok := s.mapCaches[hmKey]
 	if !ok {
 		str := fmt.Sprintf("not have key:%s map", hmKey)
 		return "", errors.New(str)
 	}
-	d, err := json.MarshalIndent(m.Data, "", "")
-	return string(d), err
+
+	t := time.Now().UnixNano()
+	if v.Expire != ExpireForever && v.Expire <= t{
+		str := fmt.Sprintf("HMGet Key:%s, not found ", hmKey)
+		return "", errors.New(str)
+	}else{
+		str := fmt.Sprintf("HMGet Key:%s, Value:%s", hmKey, v.Data)
+		log.Println(str)
+		d, err := json.MarshalIndent(v.Data, "", "")
+		return string(d), err
+	}
+
 }
 
 
 func (s *Cache) HMGetMember(hmKey string, fieldKey string) (string, error){
 	s.mapMutex.RLock()
 	defer s.mapMutex.RUnlock()
-	m, ok := s.mapCaches[hmKey]
+	v, ok := s.mapCaches[hmKey]
 	if !ok {
 		str := fmt.Sprintf("not have key:%s map", hmKey)
 		return "", errors.New(str)
 	}
 
-	d, ok := m.Data[fieldKey]
+	t := time.Now().UnixNano()
+	if v.Expire != ExpireForever && v.Expire <= t{
+		str := fmt.Sprintf("HMGetMember Key:%s, not found ", hmKey)
+		return "", errors.New(str)
+	}
+
+
+	d, ok := v.Data[fieldKey]
 	if ok {
 		return d, nil
 	}else{
@@ -474,13 +491,21 @@ func (s *Cache) LDel(key string) error{
 func (s *Cache) LGet(key string) ([]string, error){
 	s.listMutex.RLock()
 	defer s.listMutex.RUnlock()
-	m, ok := s.listCaches[key]
+	v, ok := s.listCaches[key]
 	if !ok {
 		str := fmt.Sprintf("not have key:%s list", key)
 		return []string{}, errors.New(str)
 	}
 
-	return m.Data, nil
+	t := time.Now().UnixNano()
+	if v.Expire != ExpireForever && v.Expire <= t{
+		str := fmt.Sprintf("LGet Key:%s, not found ", key)
+		return []string{}, errors.New(str)
+	}else{
+		str := fmt.Sprintf("LGet Key:%s, Value:%s", key, v.Data)
+		log.Println(str)
+		return v.Data, nil
+	}
 
 }
 
@@ -494,20 +519,26 @@ func (s *Cache) LGetRange(key string, beg int32, end int32) ([]string, error){
 	s.listMutex.RLock()
 	defer s.listMutex.RUnlock()
 
-	m, ok := s.listCaches[key]
+	v, ok := s.listCaches[key]
 	if !ok {
 		str := fmt.Sprintf("not have key:%s list", key)
 		return []string{}, errors.New(str)
 	}
 
-	l :=len(m.Data)
+	t := time.Now().UnixNano()
+	if v.Expire != ExpireForever && v.Expire <= t{
+		str := fmt.Sprintf("LGetRange Key:%s, not found ", key)
+		return []string{}, errors.New(str)
+	}
+
+	l :=len(v.Data)
 	if beg >= int32(l){
 		str := fmt.Sprintf("list: %s out off range ", key)
 		return []string{}, errors.New(str)
 	}
 
 	min := int(math.Min(float64(end), float64(l)))
-	arr := m.Data[beg:min]
+	arr := v.Data[beg:min]
 
 	return arr, nil
 }
@@ -574,14 +605,14 @@ func (s *Cache) lDel(key string) {
 func (s *Cache) checkExpire() {
 	for {
 		time.Sleep(time.Duration(s.checkExpireInterval) * time.Second)
-		s.mutex.Lock()
+		s.valueMutex.Lock()
 		t := time.Now().UnixNano()
-		for k, v := range s.caches  {
+		for k, v := range s.valueCaches {
 			if v.Expire != ExpireForever && v.Expire <= t{
 				s.del(k)
 			}
 		}
-		s.mutex.Unlock()
+		s.valueMutex.Unlock()
 
 		time.Sleep(time.Second)
 
@@ -593,6 +624,17 @@ func (s *Cache) checkExpire() {
 			}
 		}
 		s.mapMutex.Unlock()
+
+		time.Sleep(time.Second)
+
+		s.listMutex.Lock()
+		t2 := time.Now().UnixNano()
+		for k, v := range s.listCaches  {
+			if v.Expire != ExpireForever && v.Expire <= t2{
+				s.lDel(k)
+			}
+		}
+		s.listMutex.Unlock()
 	}
 }
 

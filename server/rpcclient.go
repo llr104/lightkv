@@ -232,8 +232,10 @@ func (s *rpcClient) HMGet(hmKey string) string {
 	rsp, err := s.c.HMGet(context.Background(), &bridge.HMGetReq{HmKey:hmKey})
 	if err != nil{
 		log.Printf("HMGet error: %s\n", err.Error())
+		return ""
+	}else{
+		return rsp.GetValue()
 	}
-	return rsp.GetValue()
 }
 
 func (s *rpcClient) HMGetMember(hmKey string, key string) string{
@@ -324,16 +326,22 @@ func (s*rpcClient) LGet(key string)([]string, error){
 	rsp, err := s.c.LGet(context.Background(), &bridge.LGetReq{Key:key})
 	if err != nil{
 		log.Printf("lGet error: %s\n", err.Error())
+		return []string{}, err
+	}else{
+		return rsp.Value, nil
 	}
-	return rsp.Value, err
+
 }
 
 func (s*rpcClient) LGetRange(key string, begIndex int32, endIndex int32) ([]string, error){
 	rsp, err := s.c.LGetRange(context.Background(), &bridge.LGetRangeReq{Key:key, BegIndex:begIndex, EndIndex:endIndex})
 	if err != nil{
 		log.Printf("lGetRange error: %s\n", err.Error())
+		return []string{}, err
+	}else{
+		return rsp.Value, nil
 	}
-	return rsp.Value, err
+
 }
 
 func (s*rpcClient) LDel(key string) error{
