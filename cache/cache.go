@@ -8,7 +8,6 @@ import (
 	"log"
 	"math"
 	"os"
-	"path"
 	"path/filepath"
 	"sync"
 	"time"
@@ -59,19 +58,14 @@ type Cache struct{
 	listCachesSize 	int
 	setCachesSize 	int
 
-	checkExpireInterval int
 	opFunction func(OpType, ValueCache, ValueCache)
 
 }
 
 const ExpireForever = 0
-var DefaultDBPath = "db"
-var ValueDBPath = path.Join(DefaultDBPath, "value")
-var MapDBPath = path.Join(DefaultDBPath, "map")
-var ListDBPath = path.Join(DefaultDBPath, "list")
-var SetDBPath = path.Join(DefaultDBPath, "set")
 
-func NewCache(checkExpireInterval int) *Cache {
+
+func NewCache() *Cache {
 	 c := Cache{
 	 	valueCaches:         make(map[string]Value),
 	 	mapCaches:           make(map[string]MapValue),
@@ -82,18 +76,17 @@ func NewCache(checkExpireInterval int) *Cache {
 	 	persistentListChan:  make(chan persistentListOp),
 	 	persistentSetChan:   make(chan persistentSetOp),
 	 	opFunction:          nil,
-	 	checkExpireInterval: checkExpireInterval,
 	 }
 	 c.init()
 	 return &c
 }
 
 func (s*Cache) init() {
-	os.Mkdir(DefaultDBPath, os.ModePerm)
-	os.Mkdir(ValueDBPath, os.ModePerm)
-	os.Mkdir(MapDBPath, os.ModePerm)
-	os.Mkdir(ListDBPath, os.ModePerm)
-	os.Mkdir(SetDBPath, os.ModePerm)
+
+	createDir(Conf.ValueDBPath)
+	createDir(Conf.MapDBPath)
+	createDir(Conf.ListDBPath)
+	createDir(Conf.SetDBPath)
 
 	s.loadDB()
 
@@ -104,7 +97,7 @@ func (s*Cache) init() {
 func (s *Cache) loadDB()  {
 
 	 //普通类型
-	 filepath.Walk(ValueDBPath, func(path string, f os.FileInfo, err error) error {
+	 filepath.Walk(Conf.ValueDBPath, func(path string, f os.FileInfo, err error) error {
 		if f == nil {
 			return err
 		}
@@ -123,7 +116,7 @@ func (s *Cache) loadDB()  {
 	})
 
 	//map类型
-	filepath.Walk(MapDBPath, func(path string, f os.FileInfo, err error) error {
+	filepath.Walk(Conf.MapDBPath, func(path string, f os.FileInfo, err error) error {
 		if f == nil {
 			return err
 		}
@@ -142,7 +135,7 @@ func (s *Cache) loadDB()  {
 	})
 
 	//list类型
-	filepath.Walk(ListDBPath, func(path string, f os.FileInfo, err error) error {
+	filepath.Walk(Conf.ListDBPath, func(path string, f os.FileInfo, err error) error {
 		if f == nil {
 			return err
 		}
@@ -161,7 +154,7 @@ func (s *Cache) loadDB()  {
 	})
 
 	//set类型
-	filepath.Walk(SetDBPath, func(path string, f os.FileInfo, err error) error {
+	filepath.Walk(Conf.SetDBPath, func(path string, f os.FileInfo, err error) error {
 		if f == nil {
 			return err
 		}
@@ -306,7 +299,7 @@ func (s *Cache) del(key string) {
 func (s *Cache) saveDataBaseKV(key string, v Value) {
 	b := encodeValue(v)
 
-	fullPath := filepath.Join(ValueDBPath, key)
+	fullPath := filepath.Join(Conf.ValueDBPath, key)
 	path, _ := filepath.Split(fullPath)
 
 	createDir(path)
@@ -318,7 +311,7 @@ func (s *Cache) saveDataBaseKV(key string, v Value) {
 }
 
 func (s *Cache) delDatabaseKV(key string)  {
-	fullPath := filepath.Join(ValueDBPath, key)
+	fullPath := filepath.Join(Conf.ValueDBPath, key)
 	os.Remove(fullPath)
 }
 
@@ -497,7 +490,7 @@ func (s *Cache) hDel(key string) {
 func (s *Cache) hSaveDatabaseKV(key string, v MapValue) {
 	b := encodeHM(v)
 
-	fullPath := filepath.Join(MapDBPath, key)
+	fullPath := filepath.Join(Conf.MapDBPath, key)
 	path, _ := filepath.Split(fullPath)
 
 	createDir(path)
@@ -509,7 +502,7 @@ func (s *Cache) hSaveDatabaseKV(key string, v MapValue) {
 }
 
 func (s *Cache) hDelDatabase(key string)  {
-	fullPath := filepath.Join(MapDBPath, key)
+	fullPath := filepath.Join(Conf.MapDBPath, key)
 	os.Remove(fullPath)
 }
 
@@ -688,7 +681,7 @@ func (s *Cache) lDel(key string) {
 func (s *Cache) lSaveDataBaseKV(key string, v ListValue) {
 	b := encodeList(v)
 
-	fullPath := filepath.Join(ListDBPath, key)
+	fullPath := filepath.Join(Conf.ListDBPath, key)
 	path, _ := filepath.Split(fullPath)
 
 	createDir(path)
@@ -700,7 +693,7 @@ func (s *Cache) lSaveDataBaseKV(key string, v ListValue) {
 }
 
 func (s *Cache) lDelDatabaseKV(key string)  {
-	fullPath := filepath.Join(ListDBPath, key)
+	fullPath := filepath.Join(Conf.ListDBPath, key)
 	os.Remove(fullPath)
 }
 
@@ -839,7 +832,7 @@ func (s *Cache) sDel(key string) error{
 func (s *Cache) sSaveDatabaseKV(key string, v SetValue) {
 	b := encodeSet(v)
 
-	fullPath := filepath.Join(SetDBPath, key)
+	fullPath := filepath.Join(Conf.SetDBPath, key)
 	path, _ := filepath.Split(fullPath)
 
 	createDir(path)
@@ -851,7 +844,7 @@ func (s *Cache) sSaveDatabaseKV(key string, v SetValue) {
 }
 
 func (s *Cache) sDelDatabase(key string)  {
-	fullPath := filepath.Join(SetDBPath, key)
+	fullPath := filepath.Join(Conf.SetDBPath, key)
 	os.Remove(fullPath)
 }
 
@@ -860,7 +853,7 @@ func (s *Cache) sDelDatabase(key string)  {
 
 func (s *Cache) checkExpire() {
 	for {
-		time.Sleep(time.Duration(s.checkExpireInterval) * time.Second)
+		time.Sleep(time.Duration(Conf.CheckExpireInterval) * time.Second)
 		s.valueMutex.Lock()
 		t := time.Now().UnixNano()
 		for k, v := range s.valueCaches {

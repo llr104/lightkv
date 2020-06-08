@@ -489,16 +489,16 @@ func (s *server) SUnWatch(ctx context.Context, in *bridge.SWatchReq) (*bridge.SW
 	return &bridge.SWatchRsp{Key:in.Key}, nil
 }
 
-func NewRpcServer(cache *cache.Cache)  {
-	listen, err := net.Listen("tcp", ":9980")
+func NewRpcServer(c *cache.Cache)  {
+	listen, err := net.Listen("tcp", cache.Conf.Host)
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
 
 	handler := &rpcHandler{proxyMap: make(map[string]*rpcProxy), curID:0}
-	ser := server{cache:cache, handler: handler}
-	cache.SetOnOP(handler.onOP)
+	ser := server{cache: c, handler: handler}
+	c.SetOnOP(handler.onOP)
 	s := grpc.NewServer(grpc.StatsHandler(handler))
 	bridge.RegisterRpcBridgeServer(s, &ser)
 	s.Serve(listen)

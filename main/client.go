@@ -175,6 +175,7 @@ func testMap()  {
 	log.Printf("删除hmtest2 map 中k1元素")
 	c.HMDelMember("hmtest2", "k1")
 
+	c.HMPut("hmtest3", keys, vals, 0)
 	log.Printf("获取hmtest2 map 中k1元素:%s", c.HMGetMember("hmtest2", "k1"))
 
 	time.Sleep(6*time.Second)

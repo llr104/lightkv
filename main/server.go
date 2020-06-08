@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	c := cache.NewCache(15)
+	c := cache.NewCache()
 	api := server.NewApi(c)
 	go api.Start()
 
