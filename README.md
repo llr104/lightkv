@@ -1,5 +1,5 @@
 # lightkv 轻量化key-value服务
-- 支持字符串key-value 和 key-map存储
+- 支持字符串key-value、 key-map、key-list、key-set存储
 - 可持久化到本地
 - 提供api访问和grpc访问接口
 - 简单易用
@@ -260,7 +260,7 @@ go run main/server.go
 ```
 
 ## 后续计划
-- 支持list、set 结构存储 (list结构已经支持)
+- 支持list、set 结构存储 (已完成)
 - 常用的参数支持配置
 - 支持配置缓存占用大小，lru算法
 - 分布式
