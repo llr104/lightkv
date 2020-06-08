@@ -31,7 +31,7 @@ type rpcClient struct {
 	watchSet 	map[string]WatchSetFunc
 }
 
-func NewClient() *rpcClient{
+func NewClient(host string) *rpcClient{
 
 	s := rpcClient{watchKey: make(map[string]WatchKeyFunc),
 		watchMap:make(map[string]map[string]WatchMapFunc),
@@ -39,7 +39,7 @@ func NewClient() *rpcClient{
 		watchSet:make(map[string]WatchSetFunc),
 	}
 
-	conn, err := grpc.Dial("127.0.0.1:9980", grpc.WithInsecure())
+	conn, err := grpc.Dial(host, grpc.WithInsecure())
 
 	log.Printf("conn addr:%p", &conn)
 	if err != nil {

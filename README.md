@@ -64,7 +64,7 @@ go run main/server.go
 ## rpc 客户端用法
 ### 普通字符串 用法
 ```go 
-	c := server.NewClient()
+	c := server.NewClient("127.0.0.1:9980")
 	c.Start()
 	defer c.Close()
 
@@ -133,7 +133,7 @@ go run main/server.go
 ### map 用法
 
 ```go
-	c := server.NewClient()
+	c := server.NewClient("127.0.0.1:9980")
 	c.Start()
 	defer c.Close()
 
@@ -227,7 +227,7 @@ go run main/server.go
 ### list 用法
 
 ```go
-	c := server.NewClient()
+	c := server.NewClient("127.0.0.1:9980")
 	c.Start()
 	defer c.Close()
 
@@ -279,7 +279,7 @@ go run main/server.go
 
 ### set 用法
 ```go
-	c := server.NewClient()
+	c := server.NewClient("127.0.0.1:9980")
 	c.Start()
 	defer c.Close()
 

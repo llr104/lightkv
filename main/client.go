@@ -20,7 +20,7 @@ func main() {
 }
 
 func testValue()  {
-	c := server.NewClient()
+	c := server.NewClient("127.0.0.1:9980")
 	c.Start()
 	defer c.Close()
 
@@ -88,7 +88,7 @@ func testValue()  {
 
 
 func testMap()  {
-	c := server.NewClient()
+	c := server.NewClient("127.0.0.1:9980")
 	c.Start()
 	defer c.Close()
 
@@ -182,7 +182,7 @@ func testMap()  {
 }
 
 func testList()  {
-	c := server.NewClient()
+	c := server.NewClient("127.0.0.1:9980")
 	c.Start()
 	defer c.Close()
 
@@ -235,7 +235,7 @@ func testList()  {
 }
 
 func testSet()  {
-	c := server.NewClient()
+	c := server.NewClient("127.0.0.1:9980")
 	c.Start()
 	defer c.Close()
 
