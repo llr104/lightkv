@@ -261,6 +261,7 @@ go run main/server.go
 
 ## 后续计划
 - 支持list、set 结构存储 (list结构已经支持)
+- 常用的参数支持配置
 - 支持配置缓存占用大小，lru算法
 - 分布式
 - terminal客户端
