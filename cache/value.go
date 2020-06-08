@@ -23,10 +23,16 @@ func (s Value) ToString() string{
 	return s.Data
 }
 
+type MapContent map[string] string
+
+func newMapContent() MapContent{
+	return make(MapContent)
+}
+
 type MapValue struct {
 	Key    string       		`json:"key"`
 	Expire int64				`json:"expire"`
-	Data   map[string] string	`json:"data"`
+	Data   MapContent			`json:"data"`
 }
 
 func (s MapValue) ToString() string{
@@ -45,10 +51,17 @@ func (s ListValue) ToString() string{
 	return string(data)
 }
 
+type SetContent map[string] string
+
+func newSetContent() SetContent{
+	return make(SetContent)
+}
+
+
 type SetValue struct {
-	Key    string       		`json:"key"`
-	Expire int64				`json:"expire"`
-	Data map[string]string		`json:"data"`
+	Key    	string       	`json:"key"`
+	Expire 	int64			`json:"expire"`
+	Data 	SetContent			`json:"data"`
 }
 
 func (s SetValue) add(v string){
