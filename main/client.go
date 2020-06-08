@@ -268,9 +268,9 @@ func testSet()  {
 
 	c.SWatchKey("setwatch", func(key string, before []string, after []string, opType cache.OpType) {
 		if opType == cache.Add{
-			log.Printf("%s 新增了，新增前的值为：%v\n新增后的值为:%v\n", key, before, after)
+			log.Printf("监听 %s 新增了，新增前的值为：%v\n新增后的值为:%v\n", key, before, after)
 		}else{
-			log.Printf("%s 删除了，删除前的值为：%v\n删除后的值为:%v\n", key, before, after)
+			log.Printf("监听 %s 删除了，删除前的值为：%v\n删除后的值为:%v\n", key, before, after)
 		}
 	})
 
