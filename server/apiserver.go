@@ -64,7 +64,7 @@ func (s *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.put(w, r)
 	}else if strings.HasPrefix(pathLower, Delete){
 		s.del(w, r)
-	}else if strings.HasPrefix(pathLower, Dump){
+	}else if pathLower == Dump{
 		s.dump(w, r)
 	}else if strings.HasPrefix(pathLower, HGet){
 		s.hGet(w, r)
@@ -76,7 +76,7 @@ func (s *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.hDel(w, r)
 	}else if strings.HasPrefix(pathLower, HDelM){
 		s.hDelM(w, r)
-	}else if strings.HasPrefix(pathLower, HDump){
+	}else if pathLower == HDump{
 		s.hDump(w, r)
 	}else if strings.HasPrefix(pathLower, LGet){
 		s.lGet(w, r)
@@ -88,7 +88,7 @@ func (s *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.lDel(w, r)
 	}else if strings.HasPrefix(pathLower, LDelRange){
 		s.lDelRange(w, r)
-	}else if strings.HasPrefix(pathLower, LDump){
+	}else if pathLower == LDump{
 		s.lDump(w, r)
 	}else if strings.HasPrefix(pathLower, SGet) {
 		s.sGet(w, r)
@@ -98,7 +98,7 @@ func (s *apiServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		s.sDel(w, r)
 	}else if strings.HasPrefix(pathLower, SDelMember) {
 		s.sDelMember(w, r)
-	}else if strings.HasPrefix(pathLower, SDump){
+	}else if pathLower == SDump{
 		s.sDump(w, r)
 	}else{
 		r := Rsp{Key: "", Value: "", Success: false}
