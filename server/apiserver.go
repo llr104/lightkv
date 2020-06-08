@@ -179,8 +179,7 @@ func (s *apiServer) del(w http.ResponseWriter, r *http.Request){
 }
 
 func (s *apiServer) dump(w http.ResponseWriter, r *http.Request){
-	m := s.cache.ValueCaches()
-	data, _ := json.MarshalIndent(m, "", "    ")
+	data, _ := s.cache.ValueCaches()
 	w.Write(data)
 }
 
@@ -300,8 +299,7 @@ func (s *apiServer) hDelM(w http.ResponseWriter, r *http.Request){
 }
 
 func (s *apiServer) hDump(w http.ResponseWriter, r *http.Request){
-	m := s.cache.MapCaches()
-	data, _ := json.MarshalIndent(m, "", "    ")
+	data, _ := s.cache.MapCaches()
 	w.Write(data)
 }
 
@@ -452,8 +450,7 @@ func (s *apiServer) lDelRange(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *apiServer) lDump(w http.ResponseWriter, r *http.Request){
-	m := s.cache.ListCaches()
-	data, _ := json.MarshalIndent(m, "", "    ")
+	data, _ := s.cache.ListCaches()
 	w.Write(data)
 }
 
@@ -556,7 +553,6 @@ func (s *apiServer) sDelMember(w http.ResponseWriter, r *http.Request){
 }
 
 func (s *apiServer) sDump(w http.ResponseWriter, r *http.Request){
-	m := s.cache.SetCaches()
-	data, _ := json.MarshalIndent(m, "", "    ")
+	data, _ := s.cache.SetCaches()
 	w.Write(data)
 }

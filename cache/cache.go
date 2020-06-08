@@ -92,6 +92,7 @@ func (s*Cache) init() {
 
 	go s.persistent()
 	go s.checkExpire()
+	go s.checkGC()
 }
 
 func (s *Cache) loadDB()  {
@@ -261,12 +262,12 @@ func (s *Cache) Delete (key string) error{
 	return nil
 }
 
-func (s *Cache) ValueCaches() map[string]Value {
+func (s *Cache) ValueCaches() ([]byte, error){
 	s.valueMutex.Lock()
 	defer s.valueMutex.Unlock()
 
 	log.Printf("ValueCaches size:%d", s.valueCachesSize)
-	return s.valueCaches
+	return json.MarshalIndent(s.valueCaches, "", "    ")
 }
 
 
@@ -458,12 +459,12 @@ func (s *Cache) ClearMap()  {
 }
 
 
-func (s *Cache) MapCaches() map[string]MapValue {
+func (s *Cache) MapCaches() ([]byte, error) {
 	s.mapMutex.Lock()
 	defer s.mapMutex.Unlock()
 
 	log.Printf("MapCaches size:%d", s.mapCachesSize)
-	return s.mapCaches
+	return json.MarshalIndent(s.mapCaches, "", "    ")
 }
 
 func (s *Cache) hDel(key string) {
@@ -649,12 +650,12 @@ func (s *Cache) ClearList()  {
 	s.listMutex.Unlock()
 }
 
-func (s *Cache) ListCaches() map[string]ListValue {
+func (s *Cache) ListCaches() ([]byte, error) {
 	s.listMutex.Lock()
 	defer s.listMutex.Unlock()
 
 	log.Printf("ListCaches size:%d", s.listCachesSize)
-	return s.listCaches
+	return json.MarshalIndent(s.valueCaches, "", "    ")
 }
 
 func (s *Cache) lDel(key string) {
@@ -800,12 +801,12 @@ func (s *Cache) ClearSet()  {
 	s.setMutex.Unlock()
 }
 
-func (s *Cache) SetCaches() map[string]SetValue {
+func (s *Cache) SetCaches() ([]byte, error) {
 	s.setMutex.Lock()
 	defer s.setMutex.Unlock()
 
 	log.Printf("SetCaches size:%d", s.setCachesSize)
-	return s.setCaches
+	return json.MarshalIndent(s.setCaches, "", "    ")
 }
 
 func (s *Cache) sDel(key string) error{
@@ -895,6 +896,17 @@ func (s *Cache) checkExpire() {
 			}
 		}
 		s.setMutex.Unlock()
+	}
+}
+
+func (s *Cache) checkGC()  {
+	for {
+		time.Sleep(time.Second)
+		size := s.valueCachesSize + s.mapCachesSize + s.listCachesSize + s.setCachesSize
+		if size >= Conf.CacheMaxSize{
+			//需要lru过期
+			log.Printf("need lru")
+		}
 	}
 }
 

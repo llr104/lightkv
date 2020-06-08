@@ -4,7 +4,6 @@ import (
 	"gopkg.in/ini.v1"
 	"log"
 	"path"
-	"strconv"
 )
 
 var DefaultDBPath = "db"
@@ -20,6 +19,7 @@ type config struct {
 	SetDBPath           string
 	Host                string
 	CheckExpireInterval int
+	CacheMaxSize		int
 }
 
 func init() {
@@ -39,11 +39,15 @@ func init() {
 			DefaultHost = host
 		}
 
-		checkExpireInterval := cfg.Section("").Key("checkExpireInterval").String()
-		if checkExpireInterval != ""{
-			if i, err := strconv.Atoi(checkExpireInterval); err != nil {
-				DefaultCheckExpireInterval = i
-			}
+
+		if checkExpireInterval, err := cfg.Section("").Key("checkExpireInterval").Int(); err == nil{
+			DefaultCheckExpireInterval = checkExpireInterval
+		}
+
+		if cacheMaxSize, err := cfg.Section("").Key("cacheMaxSize").Int(); err == nil{
+			Conf.CacheMaxSize = cacheMaxSize * (1024*1024)
+		}else{
+			Conf.CacheMaxSize = 1024 * (1024*1024) //1GB
 		}
 	}
 
