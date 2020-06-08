@@ -90,7 +90,7 @@ func (s* rpcHandler) HandleConn(ctx context.Context, stat stats.ConnStats)  {
 
 }
 
-func (s *rpcHandler) onOP(op cache.OpType, before cache.DataString, after cache.DataString)  {
+func (s *rpcHandler) onOP(op cache.OpType, before cache.ValueCache, after cache.ValueCache)  {
 	//fmt.Printf("key onOP:%s\n", item.Key)
 
 	switch before.(type) {

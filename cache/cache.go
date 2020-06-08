@@ -37,51 +37,31 @@ func createDir(path string) error {
 }
 
 
-type OpType int32
-
-const (
-	Add = 0
-	Del = 1
-)
-
-type persistentValueOp struct {
-	item   Value
-	opType OpType
-}
-
-type persistentMapOp struct {
-	item   MapValue
-	opType OpType
-}
-
-type persistentListOp struct {
-	item   ListValue
-	opType OpType
-}
-
-type persistentSetOp struct {
-	item   SetValue
-	opType OpType
-}
-
 
 type Cache struct{
 	valueCaches map[string]Value
 	mapCaches   map[string]MapValue
 	listCaches  map[string]ListValue
-	setCaches  map[string]SetValue
+	setCaches  	map[string]SetValue
 
-	checkExpireInterval int
 	persistentChan chan persistentValueOp
 	persistentMapChan chan persistentMapOp
 	persistentListChan chan persistentListOp
 	persistentSetChan chan persistentSetOp
 
-	opFunction func(OpType, DataString, DataString)
 	valueMutex sync.RWMutex
 	mapMutex   sync.RWMutex
 	listMutex  sync.RWMutex
 	setMutex   sync.RWMutex
+
+	valueCachesSize int
+	mapCachesSize 	int
+	listCachesSize 	int
+	setCachesSize 	int
+
+	checkExpireInterval int
+	opFunction func(OpType, ValueCache, ValueCache)
+
 }
 
 const ExpireForever = 0
@@ -137,6 +117,7 @@ func (s *Cache) loadDB()  {
 		 }else {
 		 	 v := decodeValue(data)
 			 s.valueCaches[v.Key] = v
+			 s.valueCachesSize += v.Size()
 		 }
 		return nil
 	})
@@ -155,6 +136,7 @@ func (s *Cache) loadDB()  {
 		}else {
 			v := decodeHM(data)
 			s.mapCaches[v.Key] = v
+			s.mapCachesSize += v.Size()
 		}
 		return nil
 	})
@@ -173,6 +155,7 @@ func (s *Cache) loadDB()  {
 		}else {
 			v := decodeList(data)
 			s.listCaches[v.Key] = v
+			s.listCachesSize += v.Size()
 		}
 		return nil
 	})
@@ -191,6 +174,7 @@ func (s *Cache) loadDB()  {
 		}else {
 			v := decodeSet(data)
 			s.setCaches[v.Key] = v
+			s.setCachesSize += v.Size()
 		}
 		return nil
 	})
@@ -199,7 +183,7 @@ func (s *Cache) loadDB()  {
 		len(s.valueCaches)+len(s.mapCaches)+len(s.listCaches)+len(s.setCaches))
 }
 
-func (s*Cache) SetOnOP(opFunc func(OpType, DataString, DataString)) {
+func (s*Cache) SetOnOP(opFunc func(OpType, ValueCache, ValueCache)) {
 	s.opFunction = opFunc
 }
 
@@ -210,6 +194,11 @@ value
 func (s*Cache) Put(key string, v string, expire int64 ) error{
 	s.valueMutex.Lock()
 	old, has := s.valueCaches[key]
+
+	if has{
+		s.valueCachesSize -= old.Size()
+	}
+
 	var needUpdate bool = false
 	var val Value
 	if expire == ExpireForever {
@@ -247,6 +236,8 @@ func (s*Cache) Put(key string, v string, expire int64 ) error{
 		s.persistentChan <- op
 	}
 
+	s.valueCachesSize += val.Size()
+
 	return nil
 }
 
@@ -280,6 +271,8 @@ func (s *Cache) Delete (key string) error{
 func (s *Cache) ValueCaches() map[string]Value {
 	s.valueMutex.Lock()
 	defer s.valueMutex.Unlock()
+
+	log.Printf("ValueCaches size:%d", s.valueCachesSize)
 	return s.valueCaches
 }
 
@@ -297,6 +290,8 @@ func (s *Cache) del(key string) {
 	log.Printf("del Key:%s", key)
 	old, ok := s.valueCaches[key]
 	if ok{
+		s.valueCachesSize -= old.Size()
+
 		delete(s.valueCaches, key)
 		val := Value{Key: key, Expire: ExpireForever, Data:""}
 		op := persistentValueOp{item: val, opType:Del}
@@ -344,6 +339,7 @@ func (s *Cache) HMPut(hmKey string, keys [] string,  fields [] string, expire in
 		m = MapValue{Data: newMapContent(), Key:hmKey, Expire:ExpireForever}
 	}else{
 		old = MapValue{Data:Copy(m.Data), Key:m.Key, Expire:m.Expire}
+		s.mapCachesSize -= old.Size()
 	}
 
 	if expire == ExpireForever{
@@ -364,6 +360,8 @@ func (s *Cache) HMPut(hmKey string, keys [] string,  fields [] string, expire in
 	if s.opFunction != nil{
 		s.opFunction(Add, &old, &m)
 	}
+
+	s.mapCachesSize += m.Size()
 
 	return nil
 }
@@ -430,6 +428,8 @@ func (s *Cache) HMDelMember(hmKey string, fieldKey string) error{
 
 	_, ok1 := m.Data[fieldKey]
 	if ok1 {
+		s.mapCachesSize -= old.Size()
+
 		delete(m.Data, fieldKey)
 		s.mapCaches[hmKey] = m
 
@@ -439,6 +439,8 @@ func (s *Cache) HMDelMember(hmKey string, fieldKey string) error{
 		if s.opFunction != nil{
 			s.opFunction(Del, &old, &m)
 		}
+
+		s.mapCachesSize += m.Size()
 	}
 
 	return nil
@@ -466,6 +468,8 @@ func (s *Cache) ClearMap()  {
 func (s *Cache) MapCaches() map[string]MapValue {
 	s.mapMutex.Lock()
 	defer s.mapMutex.Unlock()
+
+	log.Printf("MapCaches size:%d", s.mapCachesSize)
 	return s.mapCaches
 }
 
@@ -476,6 +480,8 @@ func (s *Cache) hDel(key string) {
 
 	if ok {
 		old := MapValue{Data:Copy(m.Data), Key:m.Key, Expire:m.Expire}
+		s.mapCachesSize -= old.Size()
+
 		delete(s.mapCaches, key)
 
 		m.Data = newMapContent()
@@ -518,6 +524,8 @@ func (s *Cache) LPut(key string, value []string, expire int64) error{
 	old := arr
 	if !ok{
 		arr = ListValue{Expire:expire, Key:key}
+	}else{
+		s.listCachesSize -= old.Size()
 	}
 	arr.Expire = expire
 	arr.Data = append(arr.Data, value...)
@@ -529,6 +537,8 @@ func (s *Cache) LPut(key string, value []string, expire int64) error{
 	if s.opFunction != nil{
 		s.opFunction(Add, &old, &arr)
 	}
+
+	s.listCachesSize += arr.Size()
 
 	return nil
 }
@@ -618,6 +628,8 @@ func (s *Cache) LDelRange(key string, beg int32, end int32)  error{
 		return errors.New(str)
 	}
 
+	s.listCachesSize -= old.Size()
+
 	min := int(math.Min(float64(end), float64(l)))
 	b := m.Data[0:beg]
 	e := m.Data[min:]
@@ -632,6 +644,7 @@ func (s *Cache) LDelRange(key string, beg int32, end int32)  error{
 		s.opFunction(Del, &old, &m)
 	}
 
+	s.listCachesSize += m.Size()
 	return  nil
 }
 
@@ -646,6 +659,8 @@ func (s *Cache) ClearList()  {
 func (s *Cache) ListCaches() map[string]ListValue {
 	s.listMutex.Lock()
 	defer s.listMutex.Unlock()
+
+	log.Printf("ListCaches size:%d", s.listCachesSize)
 	return s.listCaches
 }
 
@@ -655,6 +670,8 @@ func (s *Cache) lDel(key string) {
 	m, ok := s.listCaches[key]
 	old := m
 	if ok {
+
+		s.listCachesSize -= old.Size()
 		delete(s.listCaches, key)
 
 		m.Data = []string{}
@@ -664,6 +681,7 @@ func (s *Cache) lDel(key string) {
 		if s.opFunction != nil{
 			s.opFunction(Del, &old, &m)
 		}
+
 	}
 }
 
@@ -699,6 +717,7 @@ func (s *Cache) SPut(key string, value []string, expire int64) error{
 		arr = SetValue{Expire:expire, Key:key, Data:newSetContent()}
 	}else{
 		old = SetValue{Key:arr.Key, Data:Copy(arr.Data), Expire:arr.Expire}
+		s.setCachesSize -= old.Size()
 	}
 
 	arr.Expire = expire
@@ -714,6 +733,7 @@ func (s *Cache) SPut(key string, value []string, expire int64) error{
 	if s.opFunction != nil{
 		s.opFunction(Add, &old, &arr)
 	}
+	s.setCachesSize += arr.Size()
 
 	return nil
 }
@@ -752,7 +772,9 @@ func (s *Cache) SDelMember(key string, value string) error{
 
 	ok1 := m.isExist(value)
 	if ok1 {
+
 		old := SetValue{Key:m.Key, Data:Copy(m.Data), Expire:m.Expire}
+		s.setCachesSize -= old.Size()
 
 		m.del(value)
 		s.setCaches[key] = m
@@ -763,6 +785,8 @@ func (s *Cache) SDelMember(key string, value string) error{
 		if s.opFunction != nil{
 			s.opFunction(Del, &old, &m)
 		}
+
+		s.setCachesSize += m.Size()
 	}
 
 	return nil
@@ -786,6 +810,8 @@ func (s *Cache) ClearSet()  {
 func (s *Cache) SetCaches() map[string]SetValue {
 	s.setMutex.Lock()
 	defer s.setMutex.Unlock()
+
+	log.Printf("SetCaches size:%d", s.setCachesSize)
 	return s.setCaches
 }
 
@@ -794,6 +820,8 @@ func (s *Cache) sDel(key string) error{
 	m, ok := s.setCaches[key]
 	if ok {
 		old := SetValue{Key:m.Key, Data:Copy(m.Data), Expire:m.Expire}
+		s.setCachesSize -= old.Size()
+
 		delete(s.setCaches, key)
 		m.Data = newSetContent()
 
@@ -803,6 +831,7 @@ func (s *Cache) sDel(key string) error{
 		if s.opFunction != nil{
 			s.opFunction(Del, &old, &m)
 		}
+
 	}
 	return nil
 }

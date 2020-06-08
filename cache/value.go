@@ -1,9 +1,42 @@
 package cache
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"unsafe"
+)
 
-type DataString interface {
+
+type OpType int32
+
+const (
+	Add = 0
+	Del = 1
+)
+
+type persistentValueOp struct {
+	item   Value
+	opType OpType
+}
+
+type persistentMapOp struct {
+	item   MapValue
+	opType OpType
+}
+
+type persistentListOp struct {
+	item   ListValue
+	opType OpType
+}
+
+type persistentSetOp struct {
+	item   SetValue
+	opType OpType
+}
+
+
+type ValueCache interface {
 	ToString() string
+	Size() int
 }
 
 const (
@@ -23,6 +56,11 @@ func (s Value) ToString() string{
 	return s.Data
 }
 
+func (s Value) Size() int {
+	l := int(unsafe.Sizeof(s.Expire))
+	return l + len(s.Key) + len(s.Data)
+}
+
 type MapContent map[string] string
 
 func newMapContent() MapContent{
@@ -40,6 +78,11 @@ func (s MapValue) ToString() string{
 	return string(data)
 }
 
+func (s MapValue) Size() int {
+	l := int(unsafe.Sizeof(s.Expire))
+	return l + len(s.Key) + len(s.Data)
+}
+
 type ListValue struct {
 	Key    string       		`json:"key"`
 	Expire int64				`json:"expire"`
@@ -49,6 +92,11 @@ type ListValue struct {
 func (s ListValue) ToString() string{
 	data, _ := json.MarshalIndent(s.Data, "", "    ")
 	return string(data)
+}
+
+func (s ListValue) Size() int {
+	l := int(unsafe.Sizeof(s.Expire))
+	return l + len(s.Key) + len(s.Data)
 }
 
 type SetContent map[string] string
@@ -61,7 +109,7 @@ func newSetContent() SetContent{
 type SetValue struct {
 	Key    	string       	`json:"key"`
 	Expire 	int64			`json:"expire"`
-	Data 	SetContent			`json:"data"`
+	Data 	SetContent		`json:"data"`
 }
 
 func (s SetValue) add(v string){
@@ -104,6 +152,11 @@ func (s SetValue) all() []string{
 func (s SetValue) ToString() string{
 	data, _ := json.MarshalIndent(s.all(), "", "    ")
 	return string(data)
+}
+
+func (s SetValue) Size() int {
+	l := int(unsafe.Sizeof(s.Expire))
+	return l + len(s.Key) + len(s.Data)
 }
 
 func Copy(m map[string]string) map[string]string{
