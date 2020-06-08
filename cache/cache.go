@@ -341,7 +341,7 @@ func (s *Cache) HMPut(hmKey string, keys [] string,  fields [] string, expire in
 	m, ok := s.mapCaches[hmKey]
 	old := MapValue{}
 	if !ok{
-		m = MapValue{Data: make(map[string]string), Key:hmKey, Expire:ExpireForever}
+		m = MapValue{Data: newMapContent(), Key:hmKey, Expire:ExpireForever}
 	}else{
 		old = MapValue{Data:Copy(m.Data), Key:m.Key, Expire:m.Expire}
 	}
@@ -478,7 +478,7 @@ func (s *Cache) hDel(key string) {
 		old := MapValue{Data:Copy(m.Data), Key:m.Key, Expire:m.Expire}
 		delete(s.mapCaches, key)
 
-		m.Data = make(map[string]string)
+		m.Data = newMapContent()
 		op := persistentMapOp{item: m, opType: Del}
 		s.persistentMapChan <- op
 
@@ -696,7 +696,7 @@ func (s *Cache) SPut(key string, value []string, expire int64) error{
 	arr, ok := s.setCaches[key]
 	old := SetValue{}
 	if !ok{
-		arr = SetValue{Expire:expire, Key:key, Data:make(map[string]string)}
+		arr = SetValue{Expire:expire, Key:key, Data:newSetContent()}
 	}else{
 		old = SetValue{Key:arr.Key, Data:Copy(arr.Data), Expire:arr.Expire}
 	}
@@ -795,7 +795,7 @@ func (s *Cache) sDel(key string) error{
 	if ok {
 		old := SetValue{Key:m.Key, Data:Copy(m.Data), Expire:m.Expire}
 		delete(s.setCaches, key)
-		m.Data = make(map[string]string)
+		m.Data = newSetContent()
 
 		op := persistentSetOp{item: m, opType: Del}
 		s.persistentSetChan <- op
