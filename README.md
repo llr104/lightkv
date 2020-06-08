@@ -1,4 +1,4 @@
-# lightkv 轻量化key-value服务
+# lightkv 轻量化key-value缓存服务
 - 支持字符串key-value、 key-map、key-list、key-set存储
 - 可持久化到本地
 - 提供api访问和grpc访问接口
