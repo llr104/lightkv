@@ -10,6 +10,7 @@ service RpcBridge {
     rpc Del (DelReq) returns (DelRsp) {}
     rpc WatchKey(WatchReq) returns (WatchRsp) {}
     rpc UnWatchKey(WatchReq) returns (WatchRsp) {}
+    rpc ClearValue(ClearReq) returns (ClearRsp) {}
 
     rpc HMGet (HMGetReq) returns (HMGetRsp) {}
     rpc HMGetMember (HMGetMemberReq) returns (HMGetMemberRsp) {}
@@ -17,7 +18,8 @@ service RpcBridge {
     rpc HMDel (HMDelReq) returns (HMDelRsp) {}
     rpc HMDelMember (HMDelMemberReq) returns (HMDelMemberRsp) {}
     rpc HMWatch(HMWatchReq) returns (HMWatchRsp) {}
-    rpc HMUnWatchHM(HMWatchReq) returns (HMWatchRsp) {}
+    rpc HMUnWatch(HMWatchReq) returns (HMWatchRsp) {}
+    rpc ClearMap(ClearReq) returns (ClearRsp) {}
 
     rpc LGet (LGetReq) returns (LGetRsp) {}
     rpc LGetRange (LGetRangeReq) returns (LGetRangeRsp) {}
@@ -25,7 +27,16 @@ service RpcBridge {
     rpc LDel (LDelReq) returns (LDelRsp) {}
     rpc LDelRange (LDelRangeReq) returns (LDelRangeRsp) {}
     rpc LWatch(LWatchReq) returns (LWatchRsp) {}
-    rpc LUnWatchHM(LWatchReq) returns (LWatchRsp) {}
+    rpc LUnWatch(LWatchReq) returns (LWatchRsp) {}
+    rpc ClearList(ClearReq) returns (ClearRsp) {}
+
+    rpc SGet (SGetReq) returns (SGetRsp) {}
+    rpc SPut (SPutReq) returns (SPutRsp) {}
+    rpc SDel (SDelReq) returns (SDelRsp) {}
+    rpc SDelMember (SDelMemberReq) returns (SDelMemberRsp) {}
+    rpc SWatch(SWatchReq) returns (SWatchRsp) {}
+    rpc SUnWatch(SWatchReq) returns (SWatchRsp) {}
+    rpc ClearSet(ClearReq) returns (ClearRsp) {}
 }
 
 message PingReq {
@@ -176,6 +187,8 @@ message LPutReq {
 
 message LPutRsp {
     string key = 1;
+    repeated string value = 2;
+    int64 expire = 3;
 }
 
 message LDelReq {
@@ -202,4 +215,59 @@ message LWatchReq {
 
 message LWatchRsp {
     string key = 1;
+}
+
+message SGetReq {
+    string key = 1;
+}
+
+message SGetRsp {
+    string key = 1;
+    repeated string value = 2;
+}
+
+message SPutReq {
+    string key = 1;
+    repeated string value = 2;
+    int64 expire = 3;
+}
+
+message SPutRsp {
+    string key = 1;
+    repeated string value = 2;
+    int64 expire = 3;
+}
+
+message SDelReq {
+    string key = 1;
+}
+
+message SDelRsp {
+    string key = 1;
+}
+
+message SDelMemberReq {
+    string key = 1;
+    string value = 2;
+}
+
+message SDelMemberRsp {
+    string key = 1;
+    string value = 2;
+}
+
+
+message SWatchReq {
+    string key = 1;
+}
+
+message SWatchRsp {
+    string key = 1;
+}
+
+message ClearReq {
+}
+
+message ClearRsp {
+
 }

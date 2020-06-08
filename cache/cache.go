@@ -59,38 +59,50 @@ type persistentListOp struct {
 	opType OpType
 }
 
+type persistentSetOp struct {
+	item   SetValue
+	opType OpType
+}
+
+
 type Cache struct{
 	valueCaches map[string]Value
 	mapCaches   map[string]MapValue
 	listCaches  map[string]ListValue
+	setCaches  map[string]SetValue
 
 	checkExpireInterval int
 	persistentChan chan persistentValueOp
 	persistentMapChan chan persistentMapOp
 	persistentListChan chan persistentListOp
+	persistentSetChan chan persistentSetOp
 
 	opFunction func(OpType, DataString, DataString)
 	valueMutex sync.RWMutex
 	mapMutex   sync.RWMutex
 	listMutex  sync.RWMutex
+	setMutex   sync.RWMutex
 }
 
 const ExpireForever = 0
 var DefaultDBPath = "db"
-var ValueDBPath = path.Join(DefaultDBPath, "Value")
+var ValueDBPath = path.Join(DefaultDBPath, "value")
 var MapDBPath = path.Join(DefaultDBPath, "map")
 var ListDBPath = path.Join(DefaultDBPath, "list")
+var SetDBPath = path.Join(DefaultDBPath, "set")
 
 func NewCache(checkExpireInterval int) *Cache {
 	 c := Cache{
 	 	valueCaches:         make(map[string]Value),
 	 	mapCaches:           make(map[string]MapValue),
 	 	listCaches:          make(map[string]ListValue),
-	 	checkExpireInterval: checkExpireInterval,
+	 	setCaches:           make(map[string]SetValue),
 	 	persistentChan:      make(chan persistentValueOp),
 	 	persistentMapChan:   make(chan persistentMapOp),
 	 	persistentListChan:  make(chan persistentListOp),
+	 	persistentSetChan:   make(chan persistentSetOp),
 	 	opFunction:          nil,
+	 	checkExpireInterval: checkExpireInterval,
 	 }
 	 c.init()
 	 return &c
@@ -101,6 +113,7 @@ func (s*Cache) init() {
 	os.Mkdir(ValueDBPath, os.ModePerm)
 	os.Mkdir(MapDBPath, os.ModePerm)
 	os.Mkdir(ListDBPath, os.ModePerm)
+	os.Mkdir(SetDBPath, os.ModePerm)
 
 	s.loadDB()
 
@@ -164,7 +177,26 @@ func (s *Cache) loadDB()  {
 		return nil
 	})
 
-	log.Printf("load db finish, %d Key-cacheValue ", len(s.valueCaches)+len(s.mapCaches)+len(s.listCaches))
+	//set类型
+	filepath.Walk(SetDBPath, func(path string, f os.FileInfo, err error) error {
+		if f == nil {
+			return err
+		}
+		if f.IsDir() {
+			return nil
+		}
+
+		if data, err := ioutil.ReadFile(path); err != nil {
+			log.Println(err)
+		}else {
+			v := decodeSet(data)
+			s.setCaches[v.Key] = v
+		}
+		return nil
+	})
+
+	log.Printf("load db finish, %d Key-cacheValue ",
+		len(s.valueCaches)+len(s.mapCaches)+len(s.listCaches)+len(s.setCaches))
 }
 
 func (s*Cache) SetOnOP(opFunc func(OpType, DataString, DataString)) {
@@ -245,6 +277,21 @@ func (s *Cache) Delete (key string) error{
 	return nil
 }
 
+func (s *Cache) ValueCaches() map[string]Value {
+	s.valueMutex.Lock()
+	defer s.valueMutex.Unlock()
+	return s.valueCaches
+}
+
+
+func (s *Cache) ClearValue()  {
+	s.valueMutex.Lock()
+	for k, _:= range s.valueCaches {
+		s.del(k)
+	}
+	s.valueMutex.Unlock()
+}
+
 func (s *Cache) del(key string) {
 
 	log.Printf("del Key:%s", key)
@@ -281,14 +328,6 @@ func (s *Cache) delDatabaseKV(key string)  {
 }
 
 
-func (s *Cache) ValueCaches() map[string]Value {
-	s.valueMutex.Lock()
-	defer s.valueMutex.Unlock()
-	return s.valueCaches
-}
-
-
-
 /*
 map
 */
@@ -300,9 +339,11 @@ func (s *Cache) HMPut(hmKey string, keys [] string,  fields [] string, expire in
 	defer s.mapMutex.Unlock()
 
 	m, ok := s.mapCaches[hmKey]
-	old := m
+	old := MapValue{}
 	if !ok{
 		m = MapValue{Data: make(map[string]string), Key:hmKey, Expire:ExpireForever}
+	}else{
+		old = MapValue{Data:Copy(m.Data), Key:m.Key, Expire:m.Expire}
 	}
 
 	if expire == ExpireForever{
@@ -317,10 +358,9 @@ func (s *Cache) HMPut(hmKey string, keys [] string,  fields [] string, expire in
 
 	s.mapCaches[hmKey] = m
 
-	op := persistentMapOp{item: m, opType:Add}
+	op := persistentMapOp{item: m, opType: Add}
 	s.persistentMapChan <- op
 
-	//只推送变化的值
 	if s.opFunction != nil{
 		s.opFunction(Add, &old, &m)
 	}
@@ -381,21 +421,21 @@ func (s *Cache) HMDelMember(hmKey string, fieldKey string) error{
 	defer s.mapMutex.Unlock()
 
 	m, ok := s.mapCaches[hmKey]
-	old := m
+	old := MapValue{}
 	if !ok {
 		str := fmt.Sprintf("not have key:%s map", hmKey)
 		return errors.New(str)
 	}
+	old = MapValue{Data:Copy(m.Data), Key:m.Key, Expire:m.Expire}
 
 	_, ok1 := m.Data[fieldKey]
 	if ok1 {
 		delete(m.Data, fieldKey)
 		s.mapCaches[hmKey] = m
 
-		op := persistentMapOp{item: m, opType:Del}
+		op := persistentMapOp{item: m, opType: Del}
 		s.persistentMapChan <- op
 
-		//只推送变化的值
 		if s.opFunction != nil{
 			s.opFunction(Del, &old, &m)
 		}
@@ -413,15 +453,33 @@ func (s *Cache) HMDel(hmKey string) error{
 	return nil
 }
 
+func (s *Cache) ClearMap()  {
+	s.mapMutex.Lock()
+	for k, _:= range s.mapCaches {
+		s.hDel(k)
+	}
+	s.mapMutex.Unlock()
+
+}
+
+
+func (s *Cache) MapCaches() map[string]MapValue {
+	s.mapMutex.Lock()
+	defer s.mapMutex.Unlock()
+	return s.mapCaches
+}
+
 func (s *Cache) hDel(key string) {
 
 	log.Printf("hDel Key:%s", key)
 	m, ok := s.mapCaches[key]
-	old := m
+
 	if ok {
+		old := MapValue{Data:Copy(m.Data), Key:m.Key, Expire:m.Expire}
 		delete(s.mapCaches, key)
-		m.Data = nil
-		op := persistentMapOp{item: old, opType:Del}
+
+		m.Data = make(map[string]string)
+		op := persistentMapOp{item: m, opType: Del}
 		s.persistentMapChan <- op
 
 		if s.opFunction != nil{
@@ -440,19 +498,13 @@ func (s *Cache) hSaveDatabaseKV(key string, v MapValue) {
 
 	err := ioutil.WriteFile(fullPath, b, os.ModePerm)
 	if err != nil{
-		log.Printf("saveDataBaseKV error:%s", err.Error())
+		log.Printf("hSaveDatabaseKV error:%s", err.Error())
 	}
 }
 
 func (s *Cache) hDelDatabase(key string)  {
 	fullPath := filepath.Join(MapDBPath, key)
 	os.Remove(fullPath)
-}
-
-func (s *Cache) MapCaches() map[string]MapValue {
-	s.mapMutex.Lock()
-	defer s.mapMutex.Unlock()
-	return s.mapCaches
 }
 
 
@@ -471,7 +523,7 @@ func (s *Cache) LPut(key string, value []string, expire int64) error{
 	arr.Data = append(arr.Data, value...)
 	s.listCaches[key] = arr
 
-	op := persistentListOp{item: arr, opType:Add}
+	op := persistentListOp{item: arr, opType: Add}
 	s.persistentListChan <- op
 
 	if s.opFunction != nil{
@@ -573,15 +625,28 @@ func (s *Cache) LDelRange(key string, beg int32, end int32)  error{
 	m.Data = append(b, e...)
 	s.listCaches[key] = m
 
-	op := persistentListOp{item: m, opType:Del}
+	op := persistentListOp{item: m, opType: Del}
 	s.persistentListChan <- op
 
-	//变化后的list
 	if s.opFunction != nil{
 		s.opFunction(Del, &old, &m)
 	}
 
 	return  nil
+}
+
+func (s *Cache) ClearList()  {
+	s.listMutex.Lock()
+	for k, _:= range s.listCaches {
+		s.lDel(k)
+	}
+	s.listMutex.Unlock()
+}
+
+func (s *Cache) ListCaches() map[string]ListValue {
+	s.listMutex.Lock()
+	defer s.listMutex.Unlock()
+	return s.listCaches
 }
 
 func (s *Cache) lDel(key string) {
@@ -592,8 +657,8 @@ func (s *Cache) lDel(key string) {
 	if ok {
 		delete(s.listCaches, key)
 
-		m.Data = nil
-		op := persistentListOp{item: m, opType:Del}
+		m.Data = []string{}
+		op := persistentListOp{item: m, opType: Del}
 		s.persistentListChan <- op
 
 		if s.opFunction != nil{
@@ -601,6 +666,168 @@ func (s *Cache) lDel(key string) {
 		}
 	}
 }
+
+func (s *Cache) lSaveDataBaseKV(key string, v ListValue) {
+	b := encodeList(v)
+
+	fullPath := filepath.Join(ListDBPath, key)
+	path, _ := filepath.Split(fullPath)
+
+	createDir(path)
+
+	err := ioutil.WriteFile(fullPath, b, os.ModePerm)
+	if err != nil{
+		log.Printf("lSaveDataBaseKV error:%s", err.Error())
+	}
+}
+
+func (s *Cache) lDelDatabaseKV(key string)  {
+	fullPath := filepath.Join(ListDBPath, key)
+	os.Remove(fullPath)
+}
+
+
+/*
+set
+*/
+func (s *Cache) SPut(key string, value []string, expire int64) error{
+	s.setMutex.Lock()
+	defer s.setMutex.Unlock()
+	arr, ok := s.setCaches[key]
+	old := SetValue{}
+	if !ok{
+		arr = SetValue{Expire:expire, Key:key, Data:make(map[string]string)}
+	}else{
+		old = SetValue{Key:arr.Key, Data:Copy(arr.Data), Expire:arr.Expire}
+	}
+
+	arr.Expire = expire
+	for _, v:=range value{
+		arr.Data[v] = v
+	}
+
+	s.setCaches[key] = arr
+
+	op := persistentSetOp{item: arr, opType: Add}
+	s.persistentSetChan <- op
+
+	if s.opFunction != nil{
+		s.opFunction(Add, &old, &arr)
+	}
+
+	return nil
+}
+
+func (s *Cache) SGet(key string) ([]string, error){
+	s.setMutex.RLock()
+	defer s.setMutex.RUnlock()
+	v, ok := s.setCaches[key]
+	if !ok {
+		str := fmt.Sprintf("not have key:%s set", key)
+		return []string{}, errors.New(str)
+	}
+
+	t := time.Now().UnixNano()
+	if v.Expire != ExpireForever && v.Expire <= t{
+		str := fmt.Sprintf("SGet Key:%s, not found ", key)
+		return []string{}, errors.New(str)
+	}else{
+		str := fmt.Sprintf("SGet Key:%s, Value:%s", key, v.Data)
+		log.Println(str)
+		return v.all(), nil
+	}
+}
+
+func (s *Cache) SDelMember(key string, value string) error{
+	s.setMutex.Lock()
+	defer s.setMutex.Unlock()
+
+	m, ok := s.setCaches[key]
+
+	if !ok {
+		str := fmt.Sprintf("not have key:%s set", key)
+		return errors.New(str)
+	}
+
+
+	ok1 := m.isExist(value)
+	if ok1 {
+		old := SetValue{Key:m.Key, Data:Copy(m.Data), Expire:m.Expire}
+
+		m.del(value)
+		s.setCaches[key] = m
+
+		op := persistentSetOp{item: m, opType: Del}
+		s.persistentSetChan <- op
+
+		if s.opFunction != nil{
+			s.opFunction(Del, &old, &m)
+		}
+	}
+
+	return nil
+}
+
+func (s *Cache) SDel(key string) error{
+	s.setMutex.Lock()
+	defer s.setMutex.Unlock()
+	s.sDel(key)
+	return nil
+}
+
+func (s *Cache) ClearSet()  {
+	s.setMutex.Lock()
+	for k, _:= range s.setCaches {
+		s.sDel(k)
+	}
+	s.setMutex.Unlock()
+}
+
+func (s *Cache) SetCaches() map[string]SetValue {
+	s.setMutex.Lock()
+	defer s.setMutex.Unlock()
+	return s.setCaches
+}
+
+func (s *Cache) sDel(key string) error{
+	log.Printf("sDel Key:%s", key)
+	m, ok := s.setCaches[key]
+	if ok {
+		old := SetValue{Key:m.Key, Data:Copy(m.Data), Expire:m.Expire}
+		delete(s.setCaches, key)
+		m.Data = make(map[string]string)
+
+		op := persistentSetOp{item: m, opType: Del}
+		s.persistentSetChan <- op
+
+		if s.opFunction != nil{
+			s.opFunction(Del, &old, &m)
+		}
+	}
+	return nil
+}
+
+func (s *Cache) sSaveDatabaseKV(key string, v SetValue) {
+	b := encodeSet(v)
+
+	fullPath := filepath.Join(SetDBPath, key)
+	path, _ := filepath.Split(fullPath)
+
+	createDir(path)
+
+	err := ioutil.WriteFile(fullPath, b, os.ModePerm)
+	if err != nil{
+		log.Printf("sSaveDatabaseKV error:%s", err.Error())
+	}
+}
+
+func (s *Cache) sDelDatabase(key string)  {
+	fullPath := filepath.Join(SetDBPath, key)
+	os.Remove(fullPath)
+}
+
+
+
 
 func (s *Cache) checkExpire() {
 	for {
@@ -635,69 +862,64 @@ func (s *Cache) checkExpire() {
 			}
 		}
 		s.listMutex.Unlock()
+
+		time.Sleep(time.Second)
+
+		s.setMutex.Lock()
+		t3 := time.Now().UnixNano()
+		for k, v := range s.setCaches  {
+			if v.Expire != ExpireForever && v.Expire <= t3{
+				s.sDel(k)
+			}
+		}
+		s.setMutex.Unlock()
 	}
 }
 
 func (s *Cache) persistent()  {
 	for{
 		select {
-			case op := <-s.persistentChan:
-				v := op.item
-				if op.opType == Add {
-					s.saveDataBaseKV(v.Key, v)
-				}else if op.opType == Del{
-					s.delDatabaseKV(v.Key)
-				}
-			case op := <-s.persistentMapChan:
-				v := op.item
-				if op.opType == Add {
+		case op := <-s.persistentChan:
+			v := op.item
+			if op.opType == Add {
+				s.saveDataBaseKV(v.Key, v)
+			}else if op.opType == Del{
+				s.delDatabaseKV(v.Key)
+			}
+		case op := <-s.persistentMapChan:
+			v := op.item
+			if op.opType == Add {
+				s.hSaveDatabaseKV(v.Key, v)
+			}else if op.opType == Del{
+				if len(v.Data) == 0 {
+					s.hDelDatabase(v.Key)
+				}else{
 					s.hSaveDatabaseKV(v.Key, v)
-				}else if op.opType == Del{
-					if v.Data == nil{
-						s.hDelDatabase(v.Key)
-					}else{
-						s.hSaveDatabaseKV(v.Key, v)
-					}
-				}
-			case op := <-s.persistentListChan:
-				v := op.item
-				if op.opType == Add {
-					s.lSaveDataBaseKV(v.Key, v)
-				}else if op.opType == Del{
-					if v.Data == nil{
-						s.lDelDatabaseKV(v.Key)
-					}else{
-						s.lSaveDataBaseKV(v.Key, v)
-					}
 				}
 			}
+		case op := <-s.persistentListChan:
+			v := op.item
+			if op.opType == Add {
+				s.lSaveDataBaseKV(v.Key, v)
+			}else if op.opType == Del{
+				if len(v.Data) == 0 {
+					s.lDelDatabaseKV(v.Key)
+				}else{
+					s.lSaveDataBaseKV(v.Key, v)
+				}
+			}
+		case op := <-s.persistentSetChan:
+			v := op.item
+			if op.opType == Add {
+				s.sSaveDatabaseKV(v.Key, v)
+			}else if op.opType == Del{
+				if len(v.Data) == 0 {
+					s.sDelDatabase(v.Key)
+				}else{
+					s.sSaveDatabaseKV(v.Key, v)
+				}
+			}
+		}
 	}
 }
-
-func (s *Cache) lSaveDataBaseKV(key string, v ListValue) {
-	b := encodeList(v)
-
-	fullPath := filepath.Join(ListDBPath, key)
-	path, _ := filepath.Split(fullPath)
-
-	createDir(path)
-
-	err := ioutil.WriteFile(fullPath, b, os.ModePerm)
-	if err != nil{
-		log.Printf("saveDataBaseKV error:%s", err.Error())
-	}
-}
-
-func (s *Cache) lDelDatabaseKV(key string)  {
-	fullPath := filepath.Join(ListDBPath, key)
-	os.Remove(fullPath)
-}
-
-
-func (s *Cache) ListCaches() map[string]ListValue {
-	s.listMutex.Lock()
-	defer s.listMutex.Unlock()
-	return s.listCaches
-}
-
 

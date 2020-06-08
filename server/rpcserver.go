@@ -7,6 +7,7 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/stats"
+	"log"
 	"net"
 	"sync"
 	"time"
@@ -47,10 +48,7 @@ func (s* rpcHandler) TagConn(ctx context.Context, stat *stats.ConnTagInfo) conte
 	if s.curID >2^15{
 		s.curID = 0
 	}
-	s.proxyMap[tag] = &rpcProxy{watchKey:make(map[string]string),
-								watchMap:make(map[string]map[string]string),
-								watchList:make(map[string]string),
-	}
+	s.proxyMap[tag] = newProxy()
 	fmt.Printf("TagConn:%s\n", tag)
 
 	return context.WithValue(ctx, "curID", tag)
@@ -76,8 +74,14 @@ func (s* rpcHandler) HandleConn(ctx context.Context, stat stats.ConnStats)  {
 		proxy, ok := s.proxyMap[cid.(string)]
 		if ok{
 			delete(s.proxyMap, cid.(string))
-			proxy.sendCancel()
-			proxy.recvCancel()
+			if proxy.sendCancel != nil{
+				proxy.sendCancel()
+			}
+
+			if proxy.recvCancel != nil{
+				proxy.recvCancel()
+			}
+
 		}
 		s.mutex.Unlock()
 
@@ -95,15 +99,20 @@ func (s *rpcHandler) onOP(op cache.OpType, before cache.DataString, after cache.
 			for _, proxy := range s.proxyMap{
 				b := before.(*cache.Value)
 				afterStr := ""
+				key := b.Key
 				if after != nil{
 					a := after.(*cache.Value)
 					afterStr = a.ToString()
+					if a.Key != ""{
+						key = a.Key
+					}
 				}
 
-				_, ok := proxy.watchKey[b.Key]
+				_, ok := proxy.watchKey[key]
 				if ok {
 					//通知推送
-					rsp := bridge.PublishRsp{DataType:cache.ValueData, HmKey:"", Key: b.Key,
+					log.Printf("public watch")
+					rsp := bridge.PublishRsp{DataType:cache.ValueData, HmKey:"", Key: key,
 						BeforeValue: b.ToString(), AfterValue:afterStr, Type:int32(op)}
 					proxy.sendChan <- rsp
 				}
@@ -114,14 +123,18 @@ func (s *rpcHandler) onOP(op cache.OpType, before cache.DataString, after cache.
 			for _, proxy := range s.proxyMap{
 				b := before.(*cache.MapValue)
 				afterStr := ""
+				key := b.Key
 				if after != nil{
 					a := after.(*cache.MapValue)
 					afterStr = a.ToString()
+					if a.Key != ""{
+						key = a.Key
+					}
 				}
 				_, ok := proxy.watchMap[b.Key]
 				if ok {
 					//通知推送
-					rsp := bridge.PublishRsp{DataType:cache.MapData, HmKey:b.Key, Key: "",
+					rsp := bridge.PublishRsp{DataType:cache.MapData, HmKey:key, Key: "",
 						BeforeValue: b.ToString(), AfterValue:afterStr, Type:int32(op)}
 					proxy.sendChan <- rsp
 				}
@@ -133,14 +146,41 @@ func (s *rpcHandler) onOP(op cache.OpType, before cache.DataString, after cache.
 			for _, proxy := range s.proxyMap{
 				b := before.(*cache.ListValue)
 				afterStr := ""
+				key := b.Key
 				if after != nil{
 					a := after.(*cache.ListValue)
 					afterStr = a.ToString()
+					if a.Key != ""{
+						key = a.Key
+					}
 				}
-				_, ok := proxy.watchList[b.Key]
+				_, ok := proxy.watchList[key]
 				if ok {
 					//通知推送
-					rsp := bridge.PublishRsp{DataType:cache.ListData, HmKey:"", Key: b.Key,
+					rsp := bridge.PublishRsp{DataType:cache.ListData, HmKey:"", Key: key,
+						BeforeValue: b.ToString(), AfterValue:afterStr, Type:int32(op)}
+					proxy.sendChan <- rsp
+				}
+			}
+			s.mutex.Unlock()
+		}
+		case *cache.SetValue:{
+			s.mutex.Lock()
+			for _, proxy := range s.proxyMap{
+				b := before.(*cache.SetValue)
+				afterStr := ""
+				key := b.Key
+				if after != nil{
+					a := after.(*cache.SetValue)
+					afterStr = a.ToString()
+					if a.Key != ""{
+						key = a.Key
+					}
+				}
+				_, ok := proxy.watchSet[key]
+				if ok {
+					//通知推送
+					rsp := bridge.PublishRsp{DataType:cache.SetData, HmKey:"", Key: key,
 						BeforeValue: b.ToString(), AfterValue:afterStr, Type:int32(op)}
 					proxy.sendChan <- rsp
 				}
@@ -155,7 +195,25 @@ type server struct{
 	handler *rpcHandler
 }
 
+func (s *server) ClearValue(context.Context, *bridge.ClearReq) (*bridge.ClearRsp, error) {
+	s.cache.ClearValue()
+	return &bridge.ClearRsp{}, nil
+}
 
+func (s *server) ClearMap(context.Context, *bridge.ClearReq) (*bridge.ClearRsp, error) {
+	s.cache.ClearMap()
+	return &bridge.ClearRsp{}, nil
+}
+
+func (s *server) ClearList(context.Context, *bridge.ClearReq) (*bridge.ClearRsp, error) {
+	s.cache.ClearList()
+	return &bridge.ClearRsp{}, nil
+}
+
+func (s *server) ClearSet(context.Context, *bridge.ClearReq) (*bridge.ClearRsp, error) {
+	s.cache.ClearSet()
+	return &bridge.ClearRsp{}, nil
+}
 
 func (s *server) Publish(p bridge.RpcBridge_PublishServer) error {
 
@@ -191,7 +249,7 @@ func (s *server) recvLoop(proxy *rpcProxy, p bridge.RpcBridge_PublishServer, wg 
 				goto end
 			default:
 				p.Recv()
-				time.Sleep(time.Second/100)
+				time.Sleep(time.Second/10)
 			}
 		}
 	end:
@@ -239,7 +297,7 @@ func (s *server) Get(ctx context.Context, in *bridge.GetReq) (*bridge.GetRsp, er
 
 func (s *server) Put(ctx context.Context, in *bridge.PutReq) (*bridge.PutRsp, error) {
 	s.cache.Put(in.Key, in.Value, in.Expire)
-	return &bridge.PutRsp{Key:in.Key, Value:in.Value}, nil
+	return &bridge.PutRsp{Key:in.Key,Value:in.Value,Expire:in.Expire}, nil
 }
 
 func (s *server) Del(ctx context.Context, in *bridge.DelReq) (*bridge.DelRsp, error) {
@@ -315,7 +373,7 @@ func (s *server) HMWatch(ctx context.Context, in *bridge.HMWatchReq) (*bridge.HM
 
 }
 
-func (s *server) HMUnWatchHM(ctx context.Context, in *bridge.HMWatchReq) (*bridge.HMWatchRsp, error) {
+func (s *server) HMUnWatch(ctx context.Context, in *bridge.HMWatchReq) (*bridge.HMWatchRsp, error) {
 	s.handler.mutex.Lock()
 	cid := ctx.Value("curID")
 	proxy, ok := s.handler.proxyMap[cid.(string)]
@@ -346,7 +404,7 @@ func (s *server) LGetRange(ctx context.Context, in *bridge.LGetRangeReq) (*bridg
 
 func (s *server) LPut(ctx context.Context,in *bridge.LPutReq) (*bridge.LPutRsp, error) {
 	err := s.cache.LPut(in.Key, in.Value, in.Expire)
-	return &bridge.LPutRsp{Key:in.Key}, err
+	return &bridge.LPutRsp{Key:in.Key,Value:in.Value,Expire:in.Expire}, err
 }
 
 func (s *server) LDel(ctx context.Context, in *bridge.LDelReq) (*bridge.LDelRsp, error) {
@@ -372,7 +430,7 @@ func (s *server) LWatch(ctx context.Context,in *bridge.LWatchReq) (*bridge.LWatc
 
 }
 
-func (s *server) LUnWatchHM(ctx context.Context, in *bridge.LWatchReq) (*bridge.LWatchRsp, error) {
+func (s *server) LUnWatch(ctx context.Context, in *bridge.LWatchReq) (*bridge.LWatchRsp, error) {
 	s.handler.mutex.Lock()
 	cid := ctx.Value("curID")
 	proxy, ok := s.handler.proxyMap[cid.(string)]
@@ -382,6 +440,53 @@ func (s *server) LUnWatchHM(ctx context.Context, in *bridge.LWatchReq) (*bridge.
 
 	s.handler.mutex.Unlock()
 	return &bridge.LWatchRsp{Key:in.Key}, nil
+}
+
+/*
+set
+*/
+func (s *server) SGet(ctx context.Context, in*bridge.SGetReq) (*bridge.SGetRsp, error) {
+	arr, err := s.cache.SGet(in.Key)
+	return &bridge.SGetRsp{Key:in.Key, Value:arr}, err
+}
+
+func (s *server) SPut(ctx context.Context, in *bridge.SPutReq) (*bridge.SPutRsp, error) {
+	err := s.cache.SPut(in.Key, in.Value, in.Expire)
+	return &bridge.SPutRsp{Key:in.Key,Value:in.Value,Expire:in.Expire}, err
+}
+
+func (s *server) SDel(ctx context.Context, in *bridge.SDelReq) (*bridge.SDelRsp, error) {
+	err := s.cache.SDel(in.Key)
+	return &bridge.SDelRsp{Key:in.Key}, err
+}
+
+func (s *server) SDelMember(ctx context.Context, in *bridge.SDelMemberReq) (*bridge.SDelMemberRsp, error) {
+	err := s.cache.SDelMember(in.Key, in.Value)
+	return &bridge.SDelMemberRsp{Key:in.Key, Value:in.Value}, err
+}
+
+func (s *server) SWatch(ctx context.Context, in *bridge.SWatchReq) (*bridge.SWatchRsp, error) {
+	s.handler.mutex.Lock()
+	cid := ctx.Value("curID")
+	proxy, ok := s.handler.proxyMap[cid.(string)]
+	if ok {
+		proxy.watchSet[in.Key] = in.Key
+	}
+
+	s.handler.mutex.Unlock()
+	return &bridge.SWatchRsp{Key:in.Key}, nil
+}
+
+func (s *server) SUnWatch(ctx context.Context, in *bridge.SWatchReq) (*bridge.SWatchRsp, error) {
+	s.handler.mutex.Lock()
+	cid := ctx.Value("curID")
+	proxy, ok := s.handler.proxyMap[cid.(string)]
+	if ok {
+		delete(proxy.watchSet, in.Key)
+	}
+
+	s.handler.mutex.Unlock()
+	return &bridge.SWatchRsp{Key:in.Key}, nil
 }
 
 func NewRpcServer(cache *cache.Cache)  {
