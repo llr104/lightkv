@@ -80,7 +80,12 @@ func (s MapValue) ToString() string{
 
 func (s MapValue) Size() int {
 	l := int(unsafe.Sizeof(s.Expire))
-	return l + len(s.Key) + len(s.Data)
+	t := l
+	for k, v := range s.Data {
+		t += len(k)
+		t += len(v)
+	}
+	return t + len(s.Key)
 }
 
 type ListValue struct {
@@ -96,7 +101,11 @@ func (s ListValue) ToString() string{
 
 func (s ListValue) Size() int {
 	l := int(unsafe.Sizeof(s.Expire))
-	return l + len(s.Key) + len(s.Data)
+	t := l
+	for _, v := range s.Data {
+		t += len(v)
+	}
+	return t + len(s.Key)
 }
 
 type SetContent map[string] string
@@ -156,7 +165,12 @@ func (s SetValue) ToString() string{
 
 func (s SetValue) Size() int {
 	l := int(unsafe.Sizeof(s.Expire))
-	return l + len(s.Key) + len(s.Data)
+	t := l
+	for k, v := range s.Data {
+		t += len(k)
+		t += len(v)
+	}
+	return t + len(s.Key)
 }
 
 func Copy(m map[string]string) map[string]string{
