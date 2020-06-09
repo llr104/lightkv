@@ -43,7 +43,7 @@ type apiServer struct {
 type Rsp struct {
 	Success bool 		`json:"success"`
 	Key     string 		`json:"key"`
-	Value   interface{}	`json:"kv"`
+	Value   interface{}	`json:"value"`
 }
 
 func NewApi(c *cache.Cache) *apiServer {
@@ -130,10 +130,10 @@ func (s *apiServer) get(w http.ResponseWriter, r *http.Request){
 
 func (s *apiServer) put(w http.ResponseWriter, r *http.Request){
 	//fmt.Printf("key:%s\n",  vars["key"])
-	//fmt.Printf("kv:%s\n",  vars["kv"])
+	//fmt.Printf("kv:%s\n",  vars["value"])
 	vars := r.URL.Query()
 	key, ok1 := vars["key"]
-	value, ok2 := vars["kv"]
+	value, ok2 := vars["value"]
 	expire, ok3 := vars["expire"]
 
 	if ok1 == false {
@@ -226,11 +226,11 @@ func (s *apiServer) hGetM(w http.ResponseWriter, r *http.Request){
 
 func (s *apiServer) hPush(w http.ResponseWriter, r *http.Request){
 	//fmt.Printf("key:%s\n",  vars["key"])
-	//fmt.Printf("kv:%s\n",  vars["kv"])
+	//fmt.Printf("kv:%s\n",  vars["value"])
 	vars := r.URL.Query()
 	hmkey, ok0 := vars["hmkey"]
 	key, ok1 := vars["key"]
-	value, ok2 := vars["kv"]
+	value, ok2 := vars["value"]
 	expire, ok3 := vars["expire"]
 
 	if ok0 == false{
@@ -365,7 +365,7 @@ func (s *apiServer) lGetRange(w http.ResponseWriter, r *http.Request) {
 func (s *apiServer) lPush(w http.ResponseWriter, r *http.Request) {
 	vars := r.URL.Query()
 	key, ok1 := vars["key"]
-	value, ok2 := vars["kv"]
+	value, ok2 := vars["value"]
 	expire, ok3 := vars["expire"]
 
 	if ok1 == false {
@@ -478,10 +478,10 @@ func (s *apiServer) sGet(w http.ResponseWriter, r *http.Request){
 
 func (s *apiServer) sPush(w http.ResponseWriter, r *http.Request){
 	//fmt.Printf("key:%s\n",  vars["key"])
-	//fmt.Printf("kv:%s\n",  vars["kv"])
+	//fmt.Printf("kv:%s\n",  vars["value"])
 	vars := r.URL.Query()
 	key, ok1 := vars["key"]
-	value, ok2 := vars["kv"]
+	value, ok2 := vars["value"]
 	expire, ok3 := vars["expire"]
 
 
@@ -538,7 +538,7 @@ func (s *apiServer) sDelMember(w http.ResponseWriter, r *http.Request){
 		http.Error(w, string(data), http.StatusBadRequest)
 	}else{
 		vars := r.URL.Query()
-		value, ok := vars["kv"]
+		value, ok := vars["value"]
 		if ok {
 			s.cache.SDelMember(parts[0], value[0])
 			r := Rsp{Key: parts[0], Value: value[0], Success: true}
