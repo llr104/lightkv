@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/llr104/lightkv/cache"
+	"github.com/llr104/lightkv/cache/kv"
 	"net/http"
 	"strconv"
 	"strings"
@@ -42,7 +43,7 @@ type apiServer struct {
 type Rsp struct {
 	Success bool 		`json:"success"`
 	Key     string 		`json:"key"`
-	Value   interface{}	`json:"value"`
+	Value   interface{}	`json:"kv"`
 }
 
 func NewApi(c *cache.Cache) *apiServer {
@@ -51,7 +52,7 @@ func NewApi(c *cache.Cache) *apiServer {
 }
 
 func (s *apiServer) Start()  {
-	fmt.Println(http.ListenAndServe(":9981", s))
+	fmt.Println(http.ListenAndServe(cache.Conf.ApiHost, s))
 }
 
 
@@ -129,10 +130,10 @@ func (s *apiServer) get(w http.ResponseWriter, r *http.Request){
 
 func (s *apiServer) put(w http.ResponseWriter, r *http.Request){
 	//fmt.Printf("key:%s\n",  vars["key"])
-	//fmt.Printf("value:%s\n",  vars["value"])
+	//fmt.Printf("kv:%s\n",  vars["kv"])
 	vars := r.URL.Query()
 	key, ok1 := vars["key"]
-	value, ok2 := vars["value"]
+	value, ok2 := vars["kv"]
 	expire, ok3 := vars["expire"]
 
 	if ok1 == false {
@@ -154,10 +155,10 @@ func (s *apiServer) put(w http.ResponseWriter, r *http.Request){
 		if err == nil{
 			s.cache.Put(key[0], value[0], int64)
 		}else{
-			s.cache.Put(key[0], value[0], cache.ExpireForever)
+			s.cache.Put(key[0], value[0], kv.ExpireForever)
 		}
 	}else{
-		s.cache.Put(key[0], value[0], cache.ExpireForever)
+		s.cache.Put(key[0], value[0], kv.ExpireForever)
 	}
 	rsp := Rsp{Key: key[0], Value:value[0], Success: true}
 	data, _ := json.Marshal(rsp)
@@ -179,7 +180,7 @@ func (s *apiServer) del(w http.ResponseWriter, r *http.Request){
 }
 
 func (s *apiServer) dump(w http.ResponseWriter, r *http.Request){
-	data, _ := s.cache.ValueCaches()
+	data, _ := s.cache.StringCaches()
 	w.Write(data)
 }
 
@@ -225,11 +226,11 @@ func (s *apiServer) hGetM(w http.ResponseWriter, r *http.Request){
 
 func (s *apiServer) hPush(w http.ResponseWriter, r *http.Request){
 	//fmt.Printf("key:%s\n",  vars["key"])
-	//fmt.Printf("value:%s\n",  vars["value"])
+	//fmt.Printf("kv:%s\n",  vars["kv"])
 	vars := r.URL.Query()
 	hmkey, ok0 := vars["hmkey"]
 	key, ok1 := vars["key"]
-	value, ok2 := vars["value"]
+	value, ok2 := vars["kv"]
 	expire, ok3 := vars["expire"]
 
 	if ok0 == false{
@@ -258,10 +259,10 @@ func (s *apiServer) hPush(w http.ResponseWriter, r *http.Request){
 		if err == nil{
 			s.cache.HMPut(hmkey[0], key, value, int64)
 		}else{
-			s.cache.HMPut(hmkey[0], key, value, cache.ExpireForever)
+			s.cache.HMPut(hmkey[0], key, value, kv.ExpireForever)
 		}
 	}else{
-		s.cache.HMPut(hmkey[0], key, value, cache.ExpireForever)
+		s.cache.HMPut(hmkey[0], key, value, kv.ExpireForever)
 	}
 
 	str, _ := s.cache.HMGet(hmkey[0])
@@ -364,7 +365,7 @@ func (s *apiServer) lGetRange(w http.ResponseWriter, r *http.Request) {
 func (s *apiServer) lPush(w http.ResponseWriter, r *http.Request) {
 	vars := r.URL.Query()
 	key, ok1 := vars["key"]
-	value, ok2 := vars["value"]
+	value, ok2 := vars["kv"]
 	expire, ok3 := vars["expire"]
 
 	if ok1 == false {
@@ -386,10 +387,10 @@ func (s *apiServer) lPush(w http.ResponseWriter, r *http.Request) {
 		if err == nil{
 			s.cache.LPut(key[0], value, int64)
 		}else{
-			s.cache.LPut(key[0], value, cache.ExpireForever)
+			s.cache.LPut(key[0], value, kv.ExpireForever)
 		}
 	}else{
-		s.cache.LPut(key[0], value, cache.ExpireForever)
+		s.cache.LPut(key[0], value, kv.ExpireForever)
 	}
 
 	rsp := Rsp{Key: key[0], Value:value, Success: true}
@@ -477,10 +478,10 @@ func (s *apiServer) sGet(w http.ResponseWriter, r *http.Request){
 
 func (s *apiServer) sPush(w http.ResponseWriter, r *http.Request){
 	//fmt.Printf("key:%s\n",  vars["key"])
-	//fmt.Printf("value:%s\n",  vars["value"])
+	//fmt.Printf("kv:%s\n",  vars["kv"])
 	vars := r.URL.Query()
 	key, ok1 := vars["key"]
-	value, ok2 := vars["value"]
+	value, ok2 := vars["kv"]
 	expire, ok3 := vars["expire"]
 
 
@@ -503,10 +504,10 @@ func (s *apiServer) sPush(w http.ResponseWriter, r *http.Request){
 		if err == nil{
 			s.cache.SPut(key[0], value, int64)
 		}else{
-			s.cache.SPut(key[0], value, cache.ExpireForever)
+			s.cache.SPut(key[0], value, kv.ExpireForever)
 		}
 	}else{
-		s.cache.SPut(key[0], value, cache.ExpireForever)
+		s.cache.SPut(key[0], value, kv.ExpireForever)
 	}
 
 	str, _ := s.cache.SGet(key[0])
@@ -537,7 +538,7 @@ func (s *apiServer) sDelMember(w http.ResponseWriter, r *http.Request){
 		http.Error(w, string(data), http.StatusBadRequest)
 	}else{
 		vars := r.URL.Query()
-		value, ok := vars["value"]
+		value, ok := vars["kv"]
 		if ok {
 			s.cache.SDelMember(parts[0], value[0])
 			r := Rsp{Key: parts[0], Value: value[0], Success: true}

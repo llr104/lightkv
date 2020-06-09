@@ -4,84 +4,56 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/llr104/lightkv/cache/kv"
 	"io/ioutil"
 	"log"
 	"math"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 )
-
-func isExist(path string) bool {
-	_, err := os.Stat(path) //os.Stat获取文件信息
-	if err != nil {
-		if os.IsExist(err) {
-			return true
-		}
-		return false
-	}
-	return true
-}
-
-func createDir(path string) error {
-	if !isExist(path) {
-		err := os.MkdirAll(path, os.ModePerm)
-		if err != nil {
-			return err
-		}
-		return err
-	}
-	return nil
-}
 
 
 
 type Cache struct{
-	valueCaches map[string]Value
-	mapCaches   map[string]MapValue
-	listCaches  map[string]ListValue
-	setCaches  	map[string]SetValue
+	stringLRU   *lru
+	mapLRU		*lru
+	listLRU		*lru
+	setLRU      *lru
 
-	persistentChan chan persistentValueOp
-	persistentMapChan chan persistentMapOp
-	persistentListChan chan persistentListOp
-	persistentSetChan chan persistentSetOp
-
-	valueMutex sync.RWMutex
-	mapMutex   sync.RWMutex
-	listMutex  sync.RWMutex
-	setMutex   sync.RWMutex
-
-	valueCachesSize int
-	mapCachesSize 	int
-	listCachesSize 	int
-	setCachesSize 	int
-
-	opFunction func(OpType, ValueCache, ValueCache)
+	persistentStringChan chan kv.PersistentStringOp
+	persistentMapChan    chan kv.PersistentMapOp
+	persistentListChan   chan kv.PersistentListOp
+	persistentSetChan    chan kv.PersistentSetOp
+	opFunction           func(kv.OpType, kv.ValueCache, kv.ValueCache)
 
 }
-
-const ExpireForever = 0
 
 
 func NewCache() *Cache {
 	 c := Cache{
-	 	valueCaches:         make(map[string]Value),
-	 	mapCaches:           make(map[string]MapValue),
-	 	listCaches:          make(map[string]ListValue),
-	 	setCaches:           make(map[string]SetValue),
-	 	persistentChan:      make(chan persistentValueOp),
-	 	persistentMapChan:   make(chan persistentMapOp),
-	 	persistentListChan:  make(chan persistentListOp),
-	 	persistentSetChan:   make(chan persistentSetOp),
-	 	opFunction:          nil,
+	 	stringLRU:			 newLRU(kv.ValueData, nil),
+	 	mapLRU:				 newLRU(kv.MapData, nil),
+	 	listLRU:			 newLRU(kv.ListData, nil),
+	 	setLRU:				 newLRU(kv.SetData, nil),
+
+	 	persistentStringChan: make(chan kv.PersistentStringOp),
+	 	persistentMapChan:    make(chan kv.PersistentMapOp),
+	 	persistentListChan:   make(chan kv.PersistentListOp),
+	 	persistentSetChan:    make(chan kv.PersistentSetOp),
+	 	opFunction:           nil,
 	 }
 	 c.init()
 	 return &c
 }
 
 func (s*Cache) init() {
+
+	s.stringLRU.SetExpireTrigger(s.stringExpire)
+	s.mapLRU.SetExpireTrigger(s.mapExpire)
+	s.listLRU.SetExpireTrigger(s.listExpire)
+	s.setLRU.SetExpireTrigger(s.setExpire)
+
 
 	createDir(Conf.ValueDBPath)
 	createDir(Conf.MapDBPath)
@@ -91,8 +63,7 @@ func (s*Cache) init() {
 	s.loadDB()
 
 	go s.persistent()
-	go s.checkExpire()
-	go s.checkGC()
+
 }
 
 func (s *Cache) loadDB()  {
@@ -110,8 +81,7 @@ func (s *Cache) loadDB()  {
 			 log.Println(err)
 		 }else {
 		 	 v := decodeValue(data)
-			 s.valueCaches[v.Key] = v
-			 s.valueCachesSize += v.Size()
+		 	 s.stringLRU.PushFront(v)
 		 }
 		return nil
 	})
@@ -129,8 +99,7 @@ func (s *Cache) loadDB()  {
 			log.Println(err)
 		}else {
 			v := decodeHM(data)
-			s.mapCaches[v.Key] = v
-			s.mapCachesSize += v.Size()
+			s.mapLRU.PushFront(v)
 		}
 		return nil
 	})
@@ -148,8 +117,7 @@ func (s *Cache) loadDB()  {
 			log.Println(err)
 		}else {
 			v := decodeList(data)
-			s.listCaches[v.Key] = v
-			s.listCachesSize += v.Size()
+			s.listLRU.PushFront(v)
 		}
 		return nil
 	})
@@ -167,137 +135,108 @@ func (s *Cache) loadDB()  {
 			log.Println(err)
 		}else {
 			v := decodeSet(data)
-			s.setCaches[v.Key] = v
-			s.setCachesSize += v.Size()
+			s.setLRU.PushFront(v)
 		}
 		return nil
 	})
 
 	log.Printf("load db finish, %d Key-cacheValue ",
-		len(s.valueCaches)+len(s.mapCaches)+len(s.listCaches)+len(s.setCaches))
+		s.stringLRU.Size()+s.mapLRU.Size()+s.listLRU.Size()+s.setLRU.Size())
 }
 
-func (s*Cache) SetOnOP(opFunc func(OpType, ValueCache, ValueCache)) {
+func (s*Cache) SetOnOP(opFunc func(kv.OpType, kv.ValueCache, kv.ValueCache)) {
 	s.opFunction = opFunc
 }
 
 
 /*
-value
+StringValue
 */
-func (s*Cache) Put(key string, v string, expire int64 ) error{
-	s.valueMutex.Lock()
-	old, has := s.valueCaches[key]
+func (s*Cache) Put(key string, v string, expire int64) error{
 
-	if has{
-		s.valueCachesSize -= old.Size()
+	var newVal kv.ValueCache = nil
+	oldVal, _ := s.stringLRU.Value(key)
+
+	if oldVal == nil{
+		oldVal = kv.StringValue{Key: key}
 	}
 
-	var needUpdate bool = false
-	var val Value
-	if expire == ExpireForever {
-		val = Value{Key: key, Data: v, Expire:ExpireForever}
-
-		if has {
-			if old.Data == val.Data && old.Expire == val.Expire{
-				needUpdate = false
-			}else{
-				needUpdate = true
-			}
-		}else{
-			needUpdate = true
-		}
-		s.valueCaches[key] = val
-
-		if s.opFunction != nil{
-			s.opFunction(Add, &old, &val)
-		}
+	if expire == kv.ExpireForever {
+		newVal = kv.StringValue{Key: key, Data: v, Expire:kv.ExpireForever}
 	}else{
-		needUpdate = true
 		e := time.Now().UnixNano() + expire*int64(time.Second)
-		val = Value{Key: key, Data: v, Expire:e}
-		s.valueCaches[key] = val
-		if s.opFunction != nil{
-			s.opFunction(Add, &old, &val)
-		}
+		newVal = kv.StringValue{Key: key, Data: v, Expire:e}
 	}
-	s.valueMutex.Unlock()
+	s.stringLRU.PushFront(newVal)
 
-	log.Printf("put Key:%s, Value:%v, expire:%d", key, v, expire)
-
-	if needUpdate {
-		op := persistentValueOp{item: val, opType:Add}
-		s.persistentChan <- op
+	if s.opFunction != nil{
+		s.opFunction(kv.Add, oldVal, newVal)
 	}
 
-	s.valueCachesSize += val.Size()
+	t := newVal.(kv.StringValue)
+
+	op := kv.PersistentStringOp{Item: t, OpType: kv.Add}
+	s.persistentStringChan <- op
 
 	return nil
 }
 
 func (s *Cache) Get(key string) (string, error) {
-	s.valueMutex.RLock()
-	v, ok := s.valueCaches[key]
-	s.valueMutex.RUnlock()
-	if ok{
-		t := time.Now().UnixNano()
-		if v.Expire != ExpireForever && v.Expire <= t{
-			str := fmt.Sprintf("get Key:%s, not found ", key)
+
+	if v, err := s.stringLRU.Value(key); err == nil{
+		if v.IsExpire() {
+			str := fmt.Sprintf("Get Key:%s, is expire ", key)
 			return "", errors.New(str)
 		}else{
-			str := fmt.Sprintf("get Key:%s, Value:%s", key, v.Data)
-			log.Println(str)
-			return v.Data, nil
+			return v.ToString(), nil
 		}
 	}else{
-		str := fmt.Sprintf("get Key:%s, not found", key)
+		str := fmt.Sprintf("Get Key:%s, not found", key)
 		return "", errors.New(str)
 	}
+
 }
 
 func (s *Cache) Delete (key string) error{
-	s.valueMutex.Lock()
-	s.del(key)
-	s.valueMutex.Unlock()
+	return s.del(key)
+}
+
+func (s *Cache) StringCaches() ([]byte, error){
+	return s.stringLRU.CacheToString()
+}
+
+func (s *Cache) ClearString()  {
+	s.stringLRU.Clear()
+	op := kv.PersistentStringOp{OpType: kv.Clear}
+	s.persistentStringChan <- op
+}
+
+func (s *Cache) del(key string) error{
+	oldVal, err := s.stringLRU.Value(key)
+	if err != nil{
+		return err
+	}
+
+	log.Printf("del Key:%s", key)
+	s.stringLRU.Remove(key)
+
+	s.stringExpire(key, oldVal)
+
 	return nil
 }
 
-func (s *Cache) ValueCaches() ([]byte, error){
-	s.valueMutex.Lock()
-	defer s.valueMutex.Unlock()
+func (s *Cache) stringExpire(key string, v kv.ValueCache){
 
-	log.Printf("ValueCaches size:%d", s.valueCachesSize)
-	return json.MarshalIndent(s.valueCaches, "", "    ")
-}
+	val := kv.StringValue{Key: key, Expire: kv.ExpireForever, Data:""}
+	op := kv.PersistentStringOp{Item: val, OpType: kv.Del}
+	s.persistentStringChan <- op
 
-
-func (s *Cache) ClearValue()  {
-	s.valueMutex.Lock()
-	for k, _:= range s.valueCaches {
-		s.del(k)
-	}
-	s.valueMutex.Unlock()
-}
-
-func (s *Cache) del(key string) {
-
-	log.Printf("del Key:%s", key)
-	old, ok := s.valueCaches[key]
-	if ok{
-		s.valueCachesSize -= old.Size()
-
-		delete(s.valueCaches, key)
-		val := Value{Key: key, Expire: ExpireForever, Data:""}
-		op := persistentValueOp{item: val, opType:Del}
-		s.persistentChan <- op
-
-		if s.opFunction != nil{
-			s.opFunction(Del, &old, nil)
-		}
+	if s.opFunction != nil{
+		s.opFunction(kv.Del, v, nil)
 	}
 }
 
-func (s *Cache) saveDataBaseKV(key string, v Value) {
+func (s *Cache) saveString(key string, v kv.StringValue) {
 	b := encodeValue(v)
 
 	fullPath := filepath.Join(Conf.ValueDBPath, key)
@@ -307,15 +246,19 @@ func (s *Cache) saveDataBaseKV(key string, v Value) {
 
 	err := ioutil.WriteFile(fullPath, b, os.ModePerm)
 	if err != nil{
-		log.Printf("saveDataBaseKV error:%s", err.Error())
+		log.Printf("saveString error:%s", err.Error())
 	}
 }
 
-func (s *Cache) delDatabaseKV(key string)  {
+func (s *Cache) delString(key string)  {
 	fullPath := filepath.Join(Conf.ValueDBPath, key)
 	os.Remove(fullPath)
 }
 
+func (s *Cache) clearString()  {
+	os.RemoveAll(Conf.ValueDBPath)
+	createDir(Conf.ValueDBPath)
+}
 
 /*
 map
@@ -324,117 +267,102 @@ func (s *Cache) HMPut(hmKey string, keys [] string,  fields [] string, expire in
 	if len(keys) != len(fields){
 		return errors.New("map keys len not equal fields len")
 	}
-	s.mapMutex.Lock()
-	defer s.mapMutex.Unlock()
 
-	m, ok := s.mapCaches[hmKey]
-	old := MapValue{}
-	if !ok{
-		m = MapValue{Data: newMapContent(), Key:hmKey, Expire:ExpireForever}
+	val, err := s.mapLRU.Value(hmKey)
+	m := kv.MapValue{}
+	old := kv.MapValue{Key:hmKey}
+	if err != nil{
+		m = kv.MapValue{Data: kv.NewMapContent(), Key:hmKey, Expire:kv.ExpireForever}
 	}else{
-		old = MapValue{Data:Copy(m.Data), Key:m.Key, Expire:m.Expire}
-		s.mapCachesSize -= old.Size()
+		old = kv.MapValue{Data: kv.Copy(m.Data), Key:m.Key, Expire:m.Expire}
+		m = val.(kv.MapValue)
 	}
 
-	if expire == ExpireForever{
-		m.Expire = ExpireForever
+	if expire == kv.ExpireForever{
+		m.Expire = kv.ExpireForever
 	}else{
 		m.Expire = time.Now().UnixNano() + expire*int64(time.Second)
 	}
 
-	for i:=0; i<len(keys); i++ {
-		m.Data[keys[i]] = fields[i]
-	}
+	m.Add(keys, fields)
+	s.mapLRU.PushFront(m)
 
-	s.mapCaches[hmKey] = m
-
-	op := persistentMapOp{item: m, opType: Add}
+	op := kv.PersistentMapOp{Item: m, OpType: kv.Add}
 	s.persistentMapChan <- op
 
 	if s.opFunction != nil{
-		s.opFunction(Add, &old, &m)
+		s.opFunction(kv.Add, old, m)
 	}
-
-	s.mapCachesSize += m.Size()
 
 	return nil
 }
 
 func (s *Cache) HMGet(hmKey string) (string, error){
-	s.mapMutex.RLock()
-	defer s.mapMutex.RUnlock()
-	v, ok := s.mapCaches[hmKey]
-	if !ok {
-		str := fmt.Sprintf("not have key:%s map", hmKey)
-		return "", errors.New(str)
-	}
-
-	t := time.Now().UnixNano()
-	if v.Expire != ExpireForever && v.Expire <= t{
-		str := fmt.Sprintf("HMGet Key:%s, not found ", hmKey)
-		return "", errors.New(str)
+	if v, err := s.mapLRU.Value(hmKey); err == nil{
+		if v.IsExpire() {
+			str := fmt.Sprintf("HMGet Key:%s, is expire ", hmKey)
+			return "", errors.New(str)
+		}else{
+			return v.ToString(), nil
+		}
 	}else{
-		str := fmt.Sprintf("HMGet Key:%s, Value:%s", hmKey, v.Data)
-		log.Println(str)
-		d, err := json.MarshalIndent(v.Data, "", "")
-		return string(d), err
+		str := fmt.Sprintf("HMGet Key:%s, not found", hmKey)
+		return "", errors.New(str)
 	}
-
 }
 
 
 func (s *Cache) HMGetMember(hmKey string, fieldKey string) (string, error){
-	s.mapMutex.RLock()
-	defer s.mapMutex.RUnlock()
-	v, ok := s.mapCaches[hmKey]
-	if !ok {
-		str := fmt.Sprintf("not have key:%s map", hmKey)
+
+	val, err := s.mapLRU.Value(hmKey)
+
+	if err != nil {
+		str := fmt.Sprintf("HMGetMember not have key:%s map", hmKey)
 		return "", errors.New(str)
 	}
 
-	t := time.Now().UnixNano()
-	if v.Expire != ExpireForever && v.Expire <= t{
+	if val.IsExpire(){
 		str := fmt.Sprintf("HMGetMember Key:%s, not found ", hmKey)
 		return "", errors.New(str)
 	}
 
-
+	v := val.(kv.MapValue)
 	d, ok := v.Data[fieldKey]
 	if ok {
 		return d, nil
 	}else{
-		str := fmt.Sprintf("%s map not have field: %s", hmKey, fieldKey)
+		str := fmt.Sprintf("HMGetMember key: %s map not have field: %s", hmKey, fieldKey)
 		return "", errors.New(str)
 	}
 }
 
 func (s *Cache) HMDelMember(hmKey string, fieldKey string) error{
-	s.mapMutex.Lock()
-	defer s.mapMutex.Unlock()
 
-	m, ok := s.mapCaches[hmKey]
-	old := MapValue{}
-	if !ok {
-		str := fmt.Sprintf("not have key:%s map", hmKey)
+	val, err := s.mapLRU.Value(hmKey)
+
+	if err != nil {
+		str := fmt.Sprintf("HMDelMember not have key:%s map", hmKey)
 		return errors.New(str)
 	}
-	old = MapValue{Data:Copy(m.Data), Key:m.Key, Expire:m.Expire}
 
-	_, ok1 := m.Data[fieldKey]
+	if val.IsExpire(){
+		str := fmt.Sprintf("HMDelMember Key:%s, not found ", hmKey)
+		return errors.New(str)
+	}
+
+
+	m := val.(kv.MapValue)
+	old := kv.MapValue{Data: kv.Copy(m.Data), Key:m.Key, Expire:m.Expire}
+
+	_, ok1 := m.Get(fieldKey)
 	if ok1 {
-		s.mapCachesSize -= old.Size()
-
-		delete(m.Data, fieldKey)
-		s.mapCaches[hmKey] = m
-
-		op := persistentMapOp{item: m, opType: Del}
+		m.Remove(fieldKey)
+		op := kv.PersistentMapOp{Item: m, OpType: kv.Del}
 		s.persistentMapChan <- op
 
 		if s.opFunction != nil{
-			s.opFunction(Del, &old, &m)
+			s.opFunction(kv.Del, old, m)
 		}
-
-		s.mapCachesSize += m.Size()
 	}
 
 	return nil
@@ -442,53 +370,47 @@ func (s *Cache) HMDelMember(hmKey string, fieldKey string) error{
 
 
 func (s *Cache) HMDel(hmKey string) error{
-	s.mapMutex.Lock()
-	defer s.mapMutex.Unlock()
-	s.hDel(hmKey)
-
-	return nil
+	return s.hDel(hmKey)
 }
 
 func (s *Cache) ClearMap()  {
-	s.mapMutex.Lock()
-	for k, _:= range s.mapCaches {
-		s.hDel(k)
-	}
-	s.mapMutex.Unlock()
-
+	s.mapLRU.Clear()
+	op := kv.PersistentMapOp{OpType: kv.Clear}
+	s.persistentMapChan <- op
 }
 
 
 func (s *Cache) MapCaches() ([]byte, error) {
-	s.mapMutex.Lock()
-	defer s.mapMutex.Unlock()
-
-	log.Printf("MapCaches size:%d", s.mapCachesSize)
-	return json.MarshalIndent(s.mapCaches, "", "    ")
+	return s.mapLRU.CacheToString()
 }
 
-func (s *Cache) hDel(key string) {
+func (s *Cache) hDel(key string) error{
+
+	oldVal, err := s.mapLRU.Value(key)
+	if err != nil{
+		return err
+	}
 
 	log.Printf("hDel Key:%s", key)
-	m, ok := s.mapCaches[key]
+	s.mapLRU.Remove(key)
 
-	if ok {
-		old := MapValue{Data:Copy(m.Data), Key:m.Key, Expire:m.Expire}
-		s.mapCachesSize -= old.Size()
+	s.mapExpire(key, oldVal)
 
-		delete(s.mapCaches, key)
+	return nil
+}
 
-		m.Data = newMapContent()
-		op := persistentMapOp{item: m, opType: Del}
-		s.persistentMapChan <- op
+func (s *Cache) mapExpire(key string, v kv.ValueCache){
 
-		if s.opFunction != nil{
-			s.opFunction(Del, &old, &m)
-		}
+	val := kv.MapValue{Key: key, Expire: kv.ExpireForever, Data: kv.NewMapContent()}
+	op := kv.PersistentMapOp{Item: val, OpType: kv.Del}
+	s.persistentMapChan <- op
+
+	if s.opFunction != nil{
+		s.opFunction(kv.Del, v, nil)
 	}
 }
 
-func (s *Cache) hSaveDatabaseKV(key string, v MapValue) {
+func (s *Cache) saveMap(key string, v kv.MapValue) {
 	b := encodeHM(v)
 
 	fullPath := filepath.Join(Conf.MapDBPath, key)
@@ -498,13 +420,18 @@ func (s *Cache) hSaveDatabaseKV(key string, v MapValue) {
 
 	err := ioutil.WriteFile(fullPath, b, os.ModePerm)
 	if err != nil{
-		log.Printf("hSaveDatabaseKV error:%s", err.Error())
+		log.Printf("saveMap error:%s", err.Error())
 	}
 }
 
-func (s *Cache) hDelDatabase(key string)  {
+func (s *Cache) delMap(key string)  {
 	fullPath := filepath.Join(Conf.MapDBPath, key)
 	os.Remove(fullPath)
+}
+
+func (s *Cache) clearMap()  {
+	os.RemoveAll(Conf.MapDBPath)
+	createDir(Conf.MapDBPath)
 }
 
 
@@ -512,55 +439,53 @@ func (s *Cache) hDelDatabase(key string)  {
 list
 */
 func (s *Cache) LPut(key string, value []string, expire int64) error{
-	s.listMutex.Lock()
-	defer s.listMutex.Unlock()
-	arr, ok := s.listCaches[key]
-	old := arr
-	if !ok{
-		arr = ListValue{Expire:expire, Key:key}
-	}else{
-		s.listCachesSize -= old.Size()
-	}
-	arr.Expire = expire
-	arr.Data = append(arr.Data, value...)
-	s.listCaches[key] = arr
 
-	op := persistentListOp{item: arr, opType: Add}
+	var newVal kv.ValueCache = nil
+	var oldVal kv.ValueCache = nil
+
+	if v, err := s.listLRU.Value(key); err != nil {
+		n := kv.ListValue{Expire: expire, Key:key, Data:[]string{}}
+		n.Expire = expire
+		n.Data = append(n.Data, value...)
+		newVal = n
+		oldVal = kv.ListValue{Key:key}
+	}else{
+		oldVal = v
+		n := v.(kv.ListValue)
+		n.Expire = expire
+		n.Data = append(n.Data, value...)
+		newVal = n
+	}
+
+	s.listLRU.PushFront(newVal)
+	op := kv.PersistentListOp{Item: newVal.(kv.ListValue), OpType: kv.Add}
 	s.persistentListChan <- op
 
 	if s.opFunction != nil{
-		s.opFunction(Add, &old, &arr)
+		s.opFunction(kv.Add, oldVal, newVal)
 	}
-
-	s.listCachesSize += arr.Size()
 
 	return nil
 }
 
 func (s *Cache) LDel(key string) error{
-	s.listMutex.Lock()
-	defer s.listMutex.Unlock()
-	s.lDel(key)
-	return nil
+	return s.lDel(key)
 }
 
 func (s *Cache) LGet(key string) ([]string, error){
-	s.listMutex.RLock()
-	defer s.listMutex.RUnlock()
-	v, ok := s.listCaches[key]
-	if !ok {
-		str := fmt.Sprintf("not have key:%s list", key)
-		return []string{}, errors.New(str)
-	}
 
-	t := time.Now().UnixNano()
-	if v.Expire != ExpireForever && v.Expire <= t{
-		str := fmt.Sprintf("LGet Key:%s, not found ", key)
-		return []string{}, errors.New(str)
+	if v, err := s.listLRU.Value(key); err == nil{
+		if v.IsExpire() {
+			str := fmt.Sprintf("LGet Key:%s, is expire ", key)
+			return []string{}, errors.New(str)
+		}else{
+			var arr []string
+			json.Unmarshal([]byte(v.ToString()), &arr)
+			return arr, nil
+		}
 	}else{
-		str := fmt.Sprintf("LGet Key:%s, Value:%s", key, v.Data)
-		log.Println(str)
-		return v.Data, nil
+		str := fmt.Sprintf("LGet Key:%s, not found", key)
+		return []string{}, errors.New(str)
 	}
 
 }
@@ -572,31 +497,24 @@ func (s *Cache) LGetRange(key string, beg int32, end int32) ([]string, error){
 		return []string{}, errors.New(str)
 	}
 
-	s.listMutex.RLock()
-	defer s.listMutex.RUnlock()
+	if v, err := s.listLRU.Value(key); err == nil{
+		if v.IsExpire() {
+			str := fmt.Sprintf("LGetRange Key:%s, is expire ", key)
+			return []string{}, errors.New(str)
+		}else{
+			var arr []string
+			json.Unmarshal([]byte(v.ToString()), &arr)
 
-	v, ok := s.listCaches[key]
-	if !ok {
-		str := fmt.Sprintf("not have key:%s list", key)
+			l := len(arr)
+			min := int(math.Min(float64(end), float64(l)))
+			r := arr[beg:min]
+			return r, nil
+		}
+	}else{
+		str := fmt.Sprintf("LGetRange Key:%s, not found", key)
 		return []string{}, errors.New(str)
 	}
 
-	t := time.Now().UnixNano()
-	if v.Expire != ExpireForever && v.Expire <= t{
-		str := fmt.Sprintf("LGetRange Key:%s, not found ", key)
-		return []string{}, errors.New(str)
-	}
-
-	l :=len(v.Data)
-	if beg >= int32(l){
-		str := fmt.Sprintf("list: %s out off range ", key)
-		return []string{}, errors.New(str)
-	}
-
-	min := int(math.Min(float64(end), float64(l)))
-	arr := v.Data[beg:min]
-
-	return arr, nil
 }
 
 func (s *Cache) LDelRange(key string, beg int32, end int32)  error{
@@ -606,15 +524,13 @@ func (s *Cache) LDelRange(key string, beg int32, end int32)  error{
 		return errors.New(str)
 	}
 
-	s.listMutex.RLock()
-	defer s.listMutex.RUnlock()
-
-	m, ok := s.listCaches[key]
-	old := m
-	if !ok {
+	val, err := s.listLRU.Value(key)
+	if err != nil{
 		str := fmt.Sprintf("not have key:%s list", key)
 		return errors.New(str)
 	}
+	m := val.(kv.ListValue)
+	oldVar := kv.ListValue{Key: m.Key, Data:m.Data, Expire:m.Expire}
 
 	l :=len(m.Data)
 	if beg >= int32(l){
@@ -622,64 +538,60 @@ func (s *Cache) LDelRange(key string, beg int32, end int32)  error{
 		return errors.New(str)
 	}
 
-	s.listCachesSize -= old.Size()
-
 	min := int(math.Min(float64(end), float64(l)))
 	b := m.Data[0:beg]
 	e := m.Data[min:]
 
 	m.Data = append(b, e...)
-	s.listCaches[key] = m
 
-	op := persistentListOp{item: m, opType: Del}
+	s.listLRU.PushFront(m)
+
+	op := kv.PersistentListOp{Item: m, OpType: kv.Del}
 	s.persistentListChan <- op
 
 	if s.opFunction != nil{
-		s.opFunction(Del, &old, &m)
+		s.opFunction(kv.Del, oldVar, m)
 	}
 
-	s.listCachesSize += m.Size()
 	return  nil
 }
 
 func (s *Cache) ClearList()  {
-	s.listMutex.Lock()
-	for k, _:= range s.listCaches {
-		s.lDel(k)
-	}
-	s.listMutex.Unlock()
+	s.listLRU.Clear()
+	op := kv.PersistentListOp{OpType: kv.Clear}
+	s.persistentListChan <- op
 }
 
 func (s *Cache) ListCaches() ([]byte, error) {
-	s.listMutex.Lock()
-	defer s.listMutex.Unlock()
-
-	log.Printf("ListCaches size:%d", s.listCachesSize)
-	return json.MarshalIndent(s.valueCaches, "", "    ")
+	return s.listLRU.CacheToString()
 }
 
-func (s *Cache) lDel(key string) {
 
+func (s *Cache) lDel(key string) error{
+
+	oldVal, err := s.listLRU.Value(key)
+	if err != nil{
+		return err
+	}
 	log.Printf("lDel Key:%s", key)
-	m, ok := s.listCaches[key]
-	old := m
-	if ok {
 
-		s.listCachesSize -= old.Size()
-		delete(s.listCaches, key)
+	s.listLRU.Remove(key)
+	s.listExpire(key, oldVal)
+	return nil
+}
 
-		m.Data = []string{}
-		op := persistentListOp{item: m, opType: Del}
-		s.persistentListChan <- op
+func (s *Cache) listExpire(key string, v kv.ValueCache){
 
-		if s.opFunction != nil{
-			s.opFunction(Del, &old, &m)
-		}
+	val := kv.StringValue{Key: key, Expire: kv.ExpireForever, Data:""}
+	op := kv.PersistentStringOp{Item: val, OpType: kv.Del}
+	s.persistentStringChan <- op
 
+	if s.opFunction != nil{
+		s.opFunction(kv.Del, v, nil)
 	}
 }
 
-func (s *Cache) lSaveDataBaseKV(key string, v ListValue) {
+func (s *Cache) saveList(key string, v kv.ListValue) {
 	b := encodeList(v)
 
 	fullPath := filepath.Join(Conf.ListDBPath, key)
@@ -689,13 +601,19 @@ func (s *Cache) lSaveDataBaseKV(key string, v ListValue) {
 
 	err := ioutil.WriteFile(fullPath, b, os.ModePerm)
 	if err != nil{
-		log.Printf("lSaveDataBaseKV error:%s", err.Error())
+		log.Printf("saveList error:%s", err.Error())
 	}
 }
 
-func (s *Cache) lDelDatabaseKV(key string)  {
+func (s *Cache) delList(key string)  {
 	fullPath := filepath.Join(Conf.ListDBPath, key)
 	os.Remove(fullPath)
+}
+
+
+func (s *Cache) clearList()  {
+	os.RemoveAll(Conf.ListDBPath)
+	createDir(Conf.ListDBPath)
 }
 
 
@@ -703,134 +621,124 @@ func (s *Cache) lDelDatabaseKV(key string)  {
 set
 */
 func (s *Cache) SPut(key string, value []string, expire int64) error{
-	s.setMutex.Lock()
-	defer s.setMutex.Unlock()
-	arr, ok := s.setCaches[key]
-	old := SetValue{}
-	if !ok{
-		arr = SetValue{Expire:expire, Key:key, Data:newSetContent()}
+
+	oldVal, err := s.setLRU.Value(key)
+	var newVal kv.ValueCache
+	if err != nil{
+		sv := kv.SetValue{Expire: expire, Key:key, Data: kv.NewSetContent()}
+		for _,v := range value{
+			sv.Add(v)
+		}
+		newVal = sv
+		s.setLRU.PushFront(newVal)
+		oldVal = kv.SetValue{Key:key}
+
 	}else{
-		old = SetValue{Key:arr.Key, Data:Copy(arr.Data), Expire:arr.Expire}
-		s.setCachesSize -= old.Size()
+		sv := oldVal.(kv.SetValue)
+		sv.Expire = expire
+		for _,v := range value{
+			sv.Add(v)
+		}
+		newVal = sv
+		s.setLRU.PushFront(newVal)
 	}
 
-	arr.Expire = expire
-	for _, v:=range value{
-		arr.Data[v] = v
-	}
-
-	s.setCaches[key] = arr
-
-	op := persistentSetOp{item: arr, opType: Add}
+	op := kv.PersistentSetOp{Item: newVal.(kv.SetValue), OpType: kv.Add}
 	s.persistentSetChan <- op
 
 	if s.opFunction != nil{
-		s.opFunction(Add, &old, &arr)
+		s.opFunction(kv.Add, oldVal, newVal)
 	}
-	s.setCachesSize += arr.Size()
 
 	return nil
 }
 
 func (s *Cache) SGet(key string) ([]string, error){
-	s.setMutex.RLock()
-	defer s.setMutex.RUnlock()
-	v, ok := s.setCaches[key]
-	if !ok {
-		str := fmt.Sprintf("not have key:%s set", key)
+
+	if v, err := s.setLRU.Value(key); err == nil{
+		if v.IsExpire() {
+			str := fmt.Sprintf("SGet Key:%s, is expire ", key)
+			return []string{}, errors.New(str)
+		}else{
+			var arr []string
+			json.Unmarshal([]byte(v.ToString()), &arr)
+			return arr, nil
+		}
+	}else{
+		str := fmt.Sprintf("SGet Key:%s, not found", key)
 		return []string{}, errors.New(str)
 	}
 
-	t := time.Now().UnixNano()
-	if v.Expire != ExpireForever && v.Expire <= t{
-		str := fmt.Sprintf("SGet Key:%s, not found ", key)
-		return []string{}, errors.New(str)
-	}else{
-		str := fmt.Sprintf("SGet Key:%s, Value:%s", key, v.Data)
-		log.Println(str)
-		return v.all(), nil
-	}
 }
 
 func (s *Cache) SDelMember(key string, value string) error{
-	s.setMutex.Lock()
-	defer s.setMutex.Unlock()
 
-	m, ok := s.setCaches[key]
-
-	if !ok {
+	oldVal, err := s.setLRU.Value(key)
+	if err != nil {
 		str := fmt.Sprintf("not have key:%s set", key)
 		return errors.New(str)
 	}
 
+	m := oldVal.(kv.SetValue)
+	old := oldVal.(kv.SetValue)
+	ok := m.IsExist(value)
+	if ok {
 
-	ok1 := m.isExist(value)
-	if ok1 {
+		m.Del(value)
+		s.setLRU.PushFront(m)
 
-		old := SetValue{Key:m.Key, Data:Copy(m.Data), Expire:m.Expire}
-		s.setCachesSize -= old.Size()
-
-		m.del(value)
-		s.setCaches[key] = m
-
-		op := persistentSetOp{item: m, opType: Del}
+		op := kv.PersistentSetOp{Item: m, OpType: kv.Del}
 		s.persistentSetChan <- op
 
 		if s.opFunction != nil{
-			s.opFunction(Del, &old, &m)
+			s.opFunction(kv.Del, old, m)
 		}
-
-		s.setCachesSize += m.Size()
 	}
 
 	return nil
 }
 
 func (s *Cache) SDel(key string) error{
-	s.setMutex.Lock()
-	defer s.setMutex.Unlock()
-	s.sDel(key)
-	return nil
+	return s.sDel(key)
 }
 
 func (s *Cache) ClearSet()  {
-	s.setMutex.Lock()
-	for k, _:= range s.setCaches {
-		s.sDel(k)
-	}
-	s.setMutex.Unlock()
+	s.setLRU.Clear()
+	op := kv.PersistentSetOp{OpType: kv.Clear}
+	s.persistentSetChan <- op
 }
 
 func (s *Cache) SetCaches() ([]byte, error) {
-	s.setMutex.Lock()
-	defer s.setMutex.Unlock()
-
-	log.Printf("SetCaches size:%d", s.setCachesSize)
-	return json.MarshalIndent(s.setCaches, "", "    ")
+	return s.setLRU.CacheToString()
 }
 
 func (s *Cache) sDel(key string) error{
-	log.Printf("sDel Key:%s", key)
-	m, ok := s.setCaches[key]
-	if ok {
-		old := SetValue{Key:m.Key, Data:Copy(m.Data), Expire:m.Expire}
-		s.setCachesSize -= old.Size()
-
-		delete(s.setCaches, key)
-		m.Data = newSetContent()
-
-		op := persistentSetOp{item: m, opType: Del}
-		s.persistentSetChan <- op
-
-		if s.opFunction != nil{
-			s.opFunction(Del, &old, &m)
-		}
-
+	oldVal, err := s.setLRU.Value(key)
+	if err != nil{
+		return err
 	}
+
+	log.Printf("sDel Key:%s", key)
+	s.setLRU.Remove(key)
+
+	s.setExpire(key, oldVal)
+
 	return nil
 }
 
-func (s *Cache) sSaveDatabaseKV(key string, v SetValue) {
+func (s *Cache) setExpire(key string, v kv.ValueCache){
+
+	val := kv.SetValue{Key: key, Expire: kv.ExpireForever, Data: kv.NewSetContent()}
+	op := kv.PersistentSetOp{Item: val, OpType: kv.Del}
+	s.persistentSetChan <- op
+
+	if s.opFunction != nil{
+		s.opFunction(kv.Del, v, nil)
+	}
+}
+
+
+func (s *Cache) saveSet(key string, v kv.SetValue) {
 	b := encodeSet(v)
 
 	fullPath := filepath.Join(Conf.SetDBPath, key)
@@ -840,118 +748,72 @@ func (s *Cache) sSaveDatabaseKV(key string, v SetValue) {
 
 	err := ioutil.WriteFile(fullPath, b, os.ModePerm)
 	if err != nil{
-		log.Printf("sSaveDatabaseKV error:%s", err.Error())
+		log.Printf("saveSet error:%s", err.Error())
 	}
 }
 
-func (s *Cache) sDelDatabase(key string)  {
+func (s *Cache) delSet(key string)  {
 	fullPath := filepath.Join(Conf.SetDBPath, key)
 	os.Remove(fullPath)
 }
 
-
-
-
-func (s *Cache) checkExpire() {
-	for {
-		time.Sleep(time.Duration(Conf.CheckExpireInterval) * time.Second)
-		s.valueMutex.Lock()
-		t := time.Now().UnixNano()
-		for k, v := range s.valueCaches {
-			if v.Expire != ExpireForever && v.Expire <= t{
-				s.del(k)
-			}
-		}
-		s.valueMutex.Unlock()
-
-		time.Sleep(time.Second)
-
-		s.mapMutex.Lock()
-		t1 := time.Now().UnixNano()
-		for k, v := range s.mapCaches  {
-			if v.Expire != ExpireForever && v.Expire <= t1{
-				s.hDel(k)
-			}
-		}
-		s.mapMutex.Unlock()
-
-		time.Sleep(time.Second)
-
-		s.listMutex.Lock()
-		t2 := time.Now().UnixNano()
-		for k, v := range s.listCaches  {
-			if v.Expire != ExpireForever && v.Expire <= t2{
-				s.lDel(k)
-			}
-		}
-		s.listMutex.Unlock()
-
-		time.Sleep(time.Second)
-
-		s.setMutex.Lock()
-		t3 := time.Now().UnixNano()
-		for k, v := range s.setCaches  {
-			if v.Expire != ExpireForever && v.Expire <= t3{
-				s.sDel(k)
-			}
-		}
-		s.setMutex.Unlock()
-	}
+func (s *Cache) clearSet()  {
+	os.RemoveAll(Conf.SetDBPath)
+	createDir(Conf.SetDBPath)
 }
 
-func (s *Cache) checkGC()  {
-	for {
-		time.Sleep(time.Second)
-		size := s.valueCachesSize + s.mapCachesSize + s.listCachesSize + s.setCachesSize
-		if size >= Conf.CacheMaxSize{
-			//需要lru过期
-			log.Printf("need lru")
-		}
-	}
-}
+
 
 func (s *Cache) persistent()  {
 	for{
 		select {
-		case op := <-s.persistentChan:
-			v := op.item
-			if op.opType == Add {
-				s.saveDataBaseKV(v.Key, v)
-			}else if op.opType == Del{
-				s.delDatabaseKV(v.Key)
+		case op := <-s.persistentStringChan:
+			v := op.Item
+			if op.OpType == kv.Add {
+				s.saveString(v.Key, v)
+			}else if op.OpType == kv.Del {
+				s.delString(v.Key)
+			}else if op.OpType == kv.Clear {
+				s.clearString()
 			}
 		case op := <-s.persistentMapChan:
-			v := op.item
-			if op.opType == Add {
-				s.hSaveDatabaseKV(v.Key, v)
-			}else if op.opType == Del{
+			v := op.Item
+			if op.OpType == kv.Add {
+				s.saveMap(v.Key, v)
+			}else if op.OpType == kv.Del {
 				if len(v.Data) == 0 {
-					s.hDelDatabase(v.Key)
+					s.delMap(v.Key)
 				}else{
-					s.hSaveDatabaseKV(v.Key, v)
+					s.saveMap(v.Key, v)
 				}
+			}else if op.OpType == kv.Clear {
+				s.clearMap()
 			}
 		case op := <-s.persistentListChan:
-			v := op.item
-			if op.opType == Add {
-				s.lSaveDataBaseKV(v.Key, v)
-			}else if op.opType == Del{
+			v := op.Item
+			if op.OpType == kv.Add {
+				s.saveList(v.Key, v)
+			}else if op.OpType == kv.Del {
 				if len(v.Data) == 0 {
-					s.lDelDatabaseKV(v.Key)
+					s.delList(v.Key)
 				}else{
-					s.lSaveDataBaseKV(v.Key, v)
+					s.saveList(v.Key, v)
 				}
+			}else if op.OpType == kv.Clear {
+				s.clearList()
 			}
 		case op := <-s.persistentSetChan:
-			v := op.item
-			if op.opType == Add {
-				s.sSaveDatabaseKV(v.Key, v)
-			}else if op.opType == Del{
+			v := op.Item
+			if op.OpType == kv.Add {
+				s.saveSet(v.Key, v)
+			}else if op.OpType == kv.Del {
 				if len(v.Data) == 0 {
-					s.sDelDatabase(v.Key)
+					s.delSet(v.Key)
 				}else{
-					s.sSaveDatabaseKV(v.Key, v)
+					s.saveSet(v.Key, v)
 				}
+			}else if op.OpType == kv.Clear {
+				s.clearSet()
 			}
 		}
 	}

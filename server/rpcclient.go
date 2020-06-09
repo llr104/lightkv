@@ -2,7 +2,7 @@ package server
 
 import (
 	"encoding/json"
-	"github.com/llr104/lightkv/cache"
+	"github.com/llr104/lightkv/cache/kv"
 	bridge "github.com/llr104/lightkv/pb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -12,10 +12,10 @@ import (
 	"time"
 )
 
-type WatchKeyFunc func(string, string, string, cache.OpType)
-type WatchMapFunc func(string, string, string, string, cache.OpType)
-type WatchListFunc func(string, []string, []string, cache.OpType)
-type WatchSetFunc func(string, []string, []string, cache.OpType)
+type WatchKeyFunc func(string, string, string, kv.OpType)
+type WatchMapFunc func(string, string, string, string, kv.OpType)
+type WatchListFunc func(string, []string, []string, kv.OpType)
+type WatchSetFunc func(string, []string, []string, kv.OpType)
 
 type rpcClient struct {
 	c          bridge.RpcBridgeClient
@@ -95,16 +95,16 @@ func (s*rpcClient) Start() {
 					//log.Printf("err:%s\n", err.Error())
 				}else{
 
-					if data.DataType == cache.ValueData{
+					if data.DataType == kv.ValueData {
 
 						s.valueMutex.Lock()
 						f, ok := s.watchKey[data.Key]
 						if ok {
-							f(data.Key, data.BeforeValue, data.AfterValue, cache.OpType(data.Type))
+							f(data.Key, data.BeforeValue, data.AfterValue, kv.OpType(data.Type))
 						}
 						s.valueMutex.Unlock()
 
-					}else if data.DataType == cache.MapData {
+					}else if data.DataType == kv.MapData {
 
 						s.mapMutex.Lock()
 						m, ok := s.watchMap[data.HmKey]
@@ -130,32 +130,32 @@ func (s*rpcClient) Start() {
 								av, _ := afterMap[k]
 
 								if bv != av{
-									f(data.HmKey, k, bv, av, cache.OpType(data.Type))
+									f(data.HmKey, k, bv, av, kv.OpType(data.Type))
 								}
 							}
 
 							//全量回调
 							if f, ok := m[""]; ok{
-								f(data.HmKey, "", data.BeforeValue, data.AfterValue, cache.OpType(data.Type))
+								f(data.HmKey, "", data.BeforeValue, data.AfterValue, kv.OpType(data.Type))
 							}
 						}
 						s.mapMutex.Unlock()
 
-					}else if data.DataType == cache.ListData{
+					}else if data.DataType == kv.ListData {
 
 						s.listMutex.Lock()
 						f, ok := s.watchList[data.Key]
 						if ok {
-							bd := cache.ListValue{}
+							bd := kv.ListValue{}
 							json.Unmarshal([]byte(data.BeforeValue), &bd.Data)
 
-							ad := cache.ListValue{}
+							ad := kv.ListValue{}
 							json.Unmarshal([]byte(data.AfterValue), &ad.Data)
 
-							f(data.Key, bd.Data, ad.Data, cache.OpType(data.Type))
+							f(data.Key, bd.Data, ad.Data, kv.OpType(data.Type))
 						}
 						s.listMutex.Unlock()
-					}else if data.DataType == cache.SetData{
+					}else if data.DataType == kv.SetData {
 
 						s.setMutex.Lock()
 						f, ok := s.watchSet[data.Key]
@@ -164,7 +164,7 @@ func (s*rpcClient) Start() {
 							var a []string
 							json.Unmarshal([]byte(data.BeforeValue), &b)
 							json.Unmarshal([]byte(data.AfterValue), &a)
-							f(data.Key, b, a, cache.OpType(data.Type))
+							f(data.Key, b, a, kv.OpType(data.Type))
 						}
 						s.setMutex.Unlock()
 					}
@@ -188,7 +188,7 @@ func (s *rpcClient) isClose() bool {
 }
 
 /*
-value
+kv
 */
 func (s*rpcClient) Put(key string, value string, expire int64) error{
 	_, err := s.c.Put(context.Background(), &bridge.PutReq{Key:key,  Value:value, Expire:expire})

@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"github.com/llr104/lightkv/cache/kv"
 )
 
-func encodeValue(value Value) [] byte{
+func encodeValue(value kv.StringValue) [] byte{
 
 	k := value.Key
 	e := value.Expire
@@ -28,9 +29,9 @@ func encodeValue(value Value) [] byte{
 	return bytesBuffer.Bytes()
 }
 
-func decodeValue(b [] byte) Value {
+func decodeValue(b [] byte) kv.StringValue {
 
-	c := Value{}
+	c := kv.StringValue{}
 	var dataLen int32 = 0
 	var keyLen int32 = 0
 
@@ -51,7 +52,7 @@ func decodeValue(b [] byte) Value {
 	return c
 }
 
-func encodeHM(value MapValue) [] byte{
+func encodeHM(value kv.MapValue) [] byte{
 
 	k := value.Key
 	e := value.Expire
@@ -74,9 +75,9 @@ func encodeHM(value MapValue) [] byte{
 	return bytesBuffer.Bytes()
 }
 
-func decodeHM(b [] byte) MapValue {
+func decodeHM(b [] byte) kv.MapValue {
 
-	c := MapValue{}
+	c := kv.MapValue{}
 	var dataLen int32 = 0
 	var keyLen int32 = 0
 
@@ -99,7 +100,7 @@ func decodeHM(b [] byte) MapValue {
 	return c
 }
 
-func encodeList(value ListValue) [] byte{
+func encodeList(value kv.ListValue) [] byte{
 
 	k := value.Key
 	e := value.Expire
@@ -122,9 +123,9 @@ func encodeList(value ListValue) [] byte{
 	return bytesBuffer.Bytes()
 }
 
-func decodeList(b [] byte) ListValue {
+func decodeList(b [] byte) kv.ListValue {
 
-	c := ListValue{}
+	c := kv.ListValue{}
 	var dataLen int32 = 0
 	var keyLen int32 = 0
 
@@ -145,12 +146,12 @@ func decodeList(b [] byte) ListValue {
 	return c
 }
 
-func encodeSet(value SetValue) [] byte{
+func encodeSet(value kv.SetValue) [] byte{
 
 	k := value.Key
 	e := value.Expire
 
-	val, _ := json.Marshal(value.all())
+	val, _ := json.Marshal(value.Data)
 
 	kl := int32(len(k))
 	vl := int32(len(val))
@@ -168,9 +169,9 @@ func encodeSet(value SetValue) [] byte{
 	return bytesBuffer.Bytes()
 }
 
-func decodeSet(b [] byte) SetValue {
+func decodeSet(b [] byte) kv.SetValue {
 
-	c := SetValue{}
+	c := kv.SetValue{}
 	var dataLen int32 = 0
 	var keyLen int32 = 0
 

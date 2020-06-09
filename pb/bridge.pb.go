@@ -176,7 +176,7 @@ type GetRsp struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Value string `protobuf:"bytes,2,opt,name=kv,proto3" json:"kv,omitempty"`
 }
 
 func (x *GetRsp) Reset() {
@@ -231,7 +231,7 @@ type PutReq struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key    string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value  string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Value  string `protobuf:"bytes,2,opt,name=kv,proto3" json:"kv,omitempty"`
 	Expire int64  `protobuf:"varint,3,opt,name=expire,proto3" json:"expire,omitempty"`
 }
 
@@ -294,7 +294,7 @@ type PutRsp struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key    string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value  string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Value  string `protobuf:"bytes,2,opt,name=kv,proto3" json:"kv,omitempty"`
 	Expire int64  `protobuf:"varint,3,opt,name=expire,proto3" json:"expire,omitempty"`
 }
 
@@ -726,7 +726,7 @@ type HMGetRsp struct {
 	unknownFields protoimpl.UnknownFields
 
 	HmKey string `protobuf:"bytes,1,opt,name=hmKey,proto3" json:"hmKey,omitempty"`
-	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Value string `protobuf:"bytes,2,opt,name=kv,proto3" json:"kv,omitempty"`
 }
 
 func (x *HMGetRsp) Reset() {
@@ -837,7 +837,7 @@ type HMGetMemberRsp struct {
 
 	HmKey string `protobuf:"bytes,1,opt,name=hmKey,proto3" json:"hmKey,omitempty"`
 	Key   string `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Value string `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
+	Value string `protobuf:"bytes,3,opt,name=kv,proto3" json:"kv,omitempty"`
 }
 
 func (x *HMGetMemberRsp) Reset() {
@@ -900,7 +900,7 @@ type HMPutReq struct {
 
 	HmKey  string   `protobuf:"bytes,1,opt,name=hmKey,proto3" json:"hmKey,omitempty"`
 	Key    []string `protobuf:"bytes,2,rep,name=key,proto3" json:"key,omitempty"`
-	Value  []string `protobuf:"bytes,3,rep,name=value,proto3" json:"value,omitempty"`
+	Value  []string `protobuf:"bytes,3,rep,name=kv,proto3" json:"kv,omitempty"`
 	Expire int64    `protobuf:"varint,4,opt,name=expire,proto3" json:"expire,omitempty"`
 }
 
@@ -971,7 +971,7 @@ type HMPutRsp struct {
 
 	HmKey  string   `protobuf:"bytes,1,opt,name=hmKey,proto3" json:"hmKey,omitempty"`
 	Key    []string `protobuf:"bytes,2,rep,name=key,proto3" json:"key,omitempty"`
-	Value  []string `protobuf:"bytes,3,rep,name=value,proto3" json:"value,omitempty"`
+	Value  []string `protobuf:"bytes,3,rep,name=kv,proto3" json:"kv,omitempty"`
 	Expire int64    `protobuf:"varint,4,opt,name=expire,proto3" json:"expire,omitempty"`
 }
 
@@ -1402,7 +1402,7 @@ type LGetRsp struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key   string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value []string `protobuf:"bytes,2,rep,name=value,proto3" json:"value,omitempty"`
+	Value []string `protobuf:"bytes,2,rep,name=kv,proto3" json:"kv,omitempty"`
 }
 
 func (x *LGetRsp) Reset() {
@@ -1520,7 +1520,7 @@ type LGetRangeRsp struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key   string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value []string `protobuf:"bytes,2,rep,name=value,proto3" json:"value,omitempty"`
+	Value []string `protobuf:"bytes,2,rep,name=kv,proto3" json:"kv,omitempty"`
 }
 
 func (x *LGetRangeRsp) Reset() {
@@ -1575,7 +1575,7 @@ type LPutReq struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key    string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value  []string `protobuf:"bytes,2,rep,name=value,proto3" json:"value,omitempty"`
+	Value  []string `protobuf:"bytes,2,rep,name=kv,proto3" json:"kv,omitempty"`
 	Expire int64    `protobuf:"varint,3,opt,name=expire,proto3" json:"expire,omitempty"`
 }
 
@@ -1638,7 +1638,7 @@ type LPutRsp struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key    string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value  []string `protobuf:"bytes,2,rep,name=value,proto3" json:"value,omitempty"`
+	Value  []string `protobuf:"bytes,2,rep,name=kv,proto3" json:"kv,omitempty"`
 	Expire int64    `protobuf:"varint,3,opt,name=expire,proto3" json:"expire,omitempty"`
 }
 
@@ -2046,7 +2046,7 @@ type SGetRsp struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key   string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value []string `protobuf:"bytes,2,rep,name=value,proto3" json:"value,omitempty"`
+	Value []string `protobuf:"bytes,2,rep,name=kv,proto3" json:"kv,omitempty"`
 }
 
 func (x *SGetRsp) Reset() {
@@ -2101,7 +2101,7 @@ type SPutReq struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key    string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value  []string `protobuf:"bytes,2,rep,name=value,proto3" json:"value,omitempty"`
+	Value  []string `protobuf:"bytes,2,rep,name=kv,proto3" json:"kv,omitempty"`
 	Expire int64    `protobuf:"varint,3,opt,name=expire,proto3" json:"expire,omitempty"`
 }
 
@@ -2164,7 +2164,7 @@ type SPutRsp struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key    string   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value  []string `protobuf:"bytes,2,rep,name=value,proto3" json:"value,omitempty"`
+	Value  []string `protobuf:"bytes,2,rep,name=kv,proto3" json:"kv,omitempty"`
 	Expire int64    `protobuf:"varint,3,opt,name=expire,proto3" json:"expire,omitempty"`
 }
 
@@ -2321,7 +2321,7 @@ type SDelMemberReq struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Value string `protobuf:"bytes,2,opt,name=kv,proto3" json:"kv,omitempty"`
 }
 
 func (x *SDelMemberReq) Reset() {
@@ -2376,7 +2376,7 @@ type SDelMemberRsp struct {
 	unknownFields protoimpl.UnknownFields
 
 	Key   string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	Value string `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	Value string `protobuf:"bytes,2,opt,name=kv,proto3" json:"kv,omitempty"`
 }
 
 func (x *SDelMemberRsp) Reset() {
@@ -2925,7 +2925,7 @@ var file_bridge_proto_depIdxs = []int32{
 	6,  // 4: bridge.RpcBridge.Del:input_type -> bridge.DelReq
 	10, // 5: bridge.RpcBridge.WatchKey:input_type -> bridge.WatchReq
 	10, // 6: bridge.RpcBridge.UnWatchKey:input_type -> bridge.WatchReq
-	46, // 7: bridge.RpcBridge.ClearValue:input_type -> bridge.ClearReq
+	46, // 7: bridge.RpcBridge.ClearString:input_type -> bridge.ClearReq
 	12, // 8: bridge.RpcBridge.HMGet:input_type -> bridge.HMGetReq
 	14, // 9: bridge.RpcBridge.HMGetMember:input_type -> bridge.HMGetMemberReq
 	16, // 10: bridge.RpcBridge.HMPut:input_type -> bridge.HMPutReq
@@ -2956,7 +2956,7 @@ var file_bridge_proto_depIdxs = []int32{
 	7,  // 35: bridge.RpcBridge.Del:output_type -> bridge.DelRsp
 	11, // 36: bridge.RpcBridge.WatchKey:output_type -> bridge.WatchRsp
 	11, // 37: bridge.RpcBridge.UnWatchKey:output_type -> bridge.WatchRsp
-	47, // 38: bridge.RpcBridge.ClearValue:output_type -> bridge.ClearRsp
+	47, // 38: bridge.RpcBridge.ClearString:output_type -> bridge.ClearRsp
 	13, // 39: bridge.RpcBridge.HMGet:output_type -> bridge.HMGetRsp
 	15, // 40: bridge.RpcBridge.HMGetMember:output_type -> bridge.HMGetMemberRsp
 	17, // 41: bridge.RpcBridge.HMPut:output_type -> bridge.HMPutRsp
@@ -3730,7 +3730,7 @@ func (c *rpcBridgeClient) UnWatchKey(ctx context.Context, in *WatchReq, opts ...
 
 func (c *rpcBridgeClient) ClearValue(ctx context.Context, in *ClearReq, opts ...grpc.CallOption) (*ClearRsp, error) {
 	out := new(ClearRsp)
-	err := c.cc.Invoke(ctx, "/bridge.RpcBridge/ClearValue", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/bridge.RpcBridge/ClearString", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -4005,7 +4005,7 @@ func (*UnimplementedRpcBridgeServer) UnWatchKey(context.Context, *WatchReq) (*Wa
 	return nil, status.Errorf(codes.Unimplemented, "method UnWatchKey not implemented")
 }
 func (*UnimplementedRpcBridgeServer) ClearValue(context.Context, *ClearReq) (*ClearRsp, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ClearValue not implemented")
+	return nil, status.Errorf(codes.Unimplemented, "method ClearString not implemented")
 }
 func (*UnimplementedRpcBridgeServer) HMGet(context.Context, *HMGetReq) (*HMGetRsp, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HMGet not implemented")
@@ -4225,7 +4225,7 @@ func _RpcBridge_ClearValue_Handler(srv interface{}, ctx context.Context, dec fun
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/bridge.RpcBridge/ClearValue",
+		FullMethod: "/bridge.RpcBridge/ClearString",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(RpcBridgeServer).ClearValue(ctx, req.(*ClearReq))
@@ -4676,7 +4676,7 @@ var _RpcBridge_serviceDesc = grpc.ServiceDesc{
 			Handler:    _RpcBridge_UnWatchKey_Handler,
 		},
 		{
-			MethodName: "ClearValue",
+			MethodName: "ClearString",
 			Handler:    _RpcBridge_ClearValue_Handler,
 		},
 		{

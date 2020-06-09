@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"github.com/llr104/lightkv/cache"
+	"github.com/llr104/lightkv/cache/kv"
 	"github.com/llr104/lightkv/pb"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -61,7 +62,7 @@ func (s* rpcHandler) HandleConn(ctx context.Context, stat stats.ConnStats)  {
 		fmt.Println("HandleConn begin")
 		/*
 		s.valueMutex.Lock()
-		cid := ctx.value("curID")
+		cid := ctx.kv("curID")
 		proxy, ok := s.proxyMap[cid.(string)]
 		s.valueMutex.Unlock()
 		 */
@@ -90,18 +91,18 @@ func (s* rpcHandler) HandleConn(ctx context.Context, stat stats.ConnStats)  {
 
 }
 
-func (s *rpcHandler) onOP(op cache.OpType, before cache.ValueCache, after cache.ValueCache)  {
+func (s *rpcHandler) onOP(op kv.OpType, before kv.ValueCache, after kv.ValueCache)  {
 	//fmt.Printf("key onOP:%s\n", item.Key)
 
 	switch before.(type) {
-		case *cache.Value:
+		case kv.StringValue:
 			s.mutex.Lock()
 			for _, proxy := range s.proxyMap{
-				b := before.(*cache.Value)
+				b := before.(kv.StringValue)
 				afterStr := ""
 				key := b.Key
 				if after != nil{
-					a := after.(*cache.Value)
+					a := after.(kv.StringValue)
 					afterStr = a.ToString()
 					if a.Key != ""{
 						key = a.Key
@@ -112,20 +113,20 @@ func (s *rpcHandler) onOP(op cache.OpType, before cache.ValueCache, after cache.
 				if ok {
 					//通知推送
 					log.Printf("public watch")
-					rsp := bridge.PublishRsp{DataType:cache.ValueData, HmKey:"", Key: key,
+					rsp := bridge.PublishRsp{DataType: kv.ValueData, HmKey:"", Key: key,
 						BeforeValue: b.ToString(), AfterValue:afterStr, Type:int32(op)}
 					proxy.sendChan <- rsp
 				}
 			}
 			s.mutex.Unlock()
-		case *cache.MapValue:{
+		case kv.MapValue:{
 			s.mutex.Lock()
 			for _, proxy := range s.proxyMap{
-				b := before.(*cache.MapValue)
+				b := before.(kv.MapValue)
 				afterStr := ""
 				key := b.Key
 				if after != nil{
-					a := after.(*cache.MapValue)
+					a := after.(kv.MapValue)
 					afterStr = a.ToString()
 					if a.Key != ""{
 						key = a.Key
@@ -134,21 +135,21 @@ func (s *rpcHandler) onOP(op cache.OpType, before cache.ValueCache, after cache.
 				_, ok := proxy.watchMap[b.Key]
 				if ok {
 					//通知推送
-					rsp := bridge.PublishRsp{DataType:cache.MapData, HmKey:key, Key: "",
+					rsp := bridge.PublishRsp{DataType: kv.MapData, HmKey:key, Key: "",
 						BeforeValue: b.ToString(), AfterValue:afterStr, Type:int32(op)}
 					proxy.sendChan <- rsp
 				}
 			}
 			s.mutex.Unlock()
 		}
-		case *cache.ListValue:{
+		case kv.ListValue:{
 			s.mutex.Lock()
 			for _, proxy := range s.proxyMap{
-				b := before.(*cache.ListValue)
+				b := before.(kv.ListValue)
 				afterStr := ""
 				key := b.Key
 				if after != nil{
-					a := after.(*cache.ListValue)
+					a := after.(kv.ListValue)
 					afterStr = a.ToString()
 					if a.Key != ""{
 						key = a.Key
@@ -157,21 +158,21 @@ func (s *rpcHandler) onOP(op cache.OpType, before cache.ValueCache, after cache.
 				_, ok := proxy.watchList[key]
 				if ok {
 					//通知推送
-					rsp := bridge.PublishRsp{DataType:cache.ListData, HmKey:"", Key: key,
+					rsp := bridge.PublishRsp{DataType: kv.ListData, HmKey:"", Key: key,
 						BeforeValue: b.ToString(), AfterValue:afterStr, Type:int32(op)}
 					proxy.sendChan <- rsp
 				}
 			}
 			s.mutex.Unlock()
 		}
-		case *cache.SetValue:{
+		case kv.SetValue:{
 			s.mutex.Lock()
 			for _, proxy := range s.proxyMap{
-				b := before.(*cache.SetValue)
+				b := before.(kv.SetValue)
 				afterStr := ""
 				key := b.Key
 				if after != nil{
-					a := after.(*cache.SetValue)
+					a := after.(kv.SetValue)
 					afterStr = a.ToString()
 					if a.Key != ""{
 						key = a.Key
@@ -180,7 +181,7 @@ func (s *rpcHandler) onOP(op cache.OpType, before cache.ValueCache, after cache.
 				_, ok := proxy.watchSet[key]
 				if ok {
 					//通知推送
-					rsp := bridge.PublishRsp{DataType:cache.SetData, HmKey:"", Key: key,
+					rsp := bridge.PublishRsp{DataType: kv.SetData, HmKey:"", Key: key,
 						BeforeValue: b.ToString(), AfterValue:afterStr, Type:int32(op)}
 					proxy.sendChan <- rsp
 				}
@@ -196,7 +197,7 @@ type server struct{
 }
 
 func (s *server) ClearValue(context.Context, *bridge.ClearReq) (*bridge.ClearRsp, error) {
-	s.cache.ClearValue()
+	s.cache.ClearString()
 	return &bridge.ClearRsp{}, nil
 }
 
@@ -490,7 +491,7 @@ func (s *server) SUnWatch(ctx context.Context, in *bridge.SWatchReq) (*bridge.SW
 }
 
 func NewRpcServer(c *cache.Cache)  {
-	listen, err := net.Listen("tcp", cache.Conf.Host)
+	listen, err := net.Listen("tcp", cache.Conf.RpcHost)
 	if err != nil {
 		fmt.Println(err.Error())
 		return

@@ -7,7 +7,8 @@ import (
 )
 
 var DefaultDBPath = "db"
-var DefaultHost = ":9980"
+var DefaultRpcHost = ":9980"
+var DefaultApiHost = ":9981"
 var DefaultCheckExpireInterval = 15
 
 var Conf config
@@ -17,9 +18,14 @@ type config struct {
 	MapDBPath           string
 	ListDBPath          string
 	SetDBPath           string
-	Host                string
+	RpcHost             string
+	ApiHost				string
 	CheckExpireInterval int
-	CacheMaxSize		int
+	CacheValueSize      int
+	CacheMapSize        int
+	CacheListSize       int
+	CacheSetSize        int
+
 }
 
 func init() {
@@ -34,9 +40,14 @@ func init() {
 			DefaultDBPath = dbPath
 		}
 
-		host := cfg.Section("").Key("host").String()
-		if host != ""{
-			DefaultHost = host
+		rpcHost := cfg.Section("").Key("rpcHost").String()
+		if rpcHost != ""{
+			DefaultRpcHost = rpcHost
+		}
+
+		apiHost := cfg.Section("").Key("apiHost").String()
+		if apiHost != ""{
+			DefaultApiHost = apiHost
 		}
 
 
@@ -44,18 +55,37 @@ func init() {
 			DefaultCheckExpireInterval = checkExpireInterval
 		}
 
-		if cacheMaxSize, err := cfg.Section("").Key("cacheMaxSize").Int(); err == nil{
-			Conf.CacheMaxSize = cacheMaxSize * (1024*1024)
+		if cacheValueSize, err := cfg.Section("").Key("cacheValueSize").Int(); err == nil{
+			Conf.CacheValueSize = cacheValueSize * (1024*1024)
 		}else{
-			Conf.CacheMaxSize = 1024 * (1024*1024) //1GB
+			Conf.CacheMapSize = 500 * (1024*1024) //500M
+		}
+
+		if cacheMapSize, err := cfg.Section("").Key("cacheMapSize").Int(); err == nil{
+			Conf.CacheMapSize = cacheMapSize * (1024*1024)
+		}else{
+			Conf.CacheMapSize = 500 * (1024*1024) //500M
+		}
+
+		if cacheListSize, err := cfg.Section("").Key("cacheListSize").Int(); err == nil{
+			Conf.CacheListSize = cacheListSize * (1024*1024)
+		}else{
+			Conf.CacheListSize = 500 * (1024*1024) //500M
+		}
+
+		if cacheSetSize, err := cfg.Section("").Key("cacheSetSize").Int(); err == nil{
+			Conf.CacheSetSize = cacheSetSize * (1024*1024)
+		}else{
+			Conf.CacheSetSize = 500 * (1024*1024) //500M
 		}
 	}
 
-	Conf.ValueDBPath = path.Join(DefaultDBPath, "value")
+	Conf.ValueDBPath = path.Join(DefaultDBPath, "kv")
 	Conf.MapDBPath = path.Join(DefaultDBPath, "map")
 	Conf.ListDBPath = path.Join(DefaultDBPath, "list")
 	Conf.SetDBPath = path.Join(DefaultDBPath, "set")
-	Conf.Host = DefaultHost
+	Conf.RpcHost = DefaultRpcHost
+	Conf.ApiHost = DefaultApiHost
 	Conf.CheckExpireInterval = DefaultCheckExpireInterval
 
 }
