@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/llr104/lightkv/cache/kv"
+	"log"
 	"sync"
 	"time"
 )
@@ -19,14 +20,16 @@ type lru struct {
 	cacheSize 		int
 	rwMutex 		sync.RWMutex
 	expireTrigger   expireTrigger
+	maxSize         int
 }
 
-func newLRU(cacheType int32, trigger expireTrigger) *lru{
+func newLRU(cacheType int32, maxSize int) *lru{
 	return &lru{
 		cacheType:		cacheType,
 		l:              list.New(),
 		caches:         make(map[string]*list.Element),
-		expireTrigger:  trigger,
+		expireTrigger:  nil,
+		maxSize:		maxSize,
 	}
 }
 
@@ -37,6 +40,20 @@ func (s* lru) PushFront(v kv.ValueCache) {
 
 	s.rwMutex.Lock()
 	defer s.rwMutex.Unlock()
+
+	if s.cacheSize >= s.maxSize{
+
+		//lru 删除
+		e := s.l.Back()
+		val := e.Value.(kv.ValueCache)
+
+		if s.expireTrigger != nil{
+			s.expireTrigger(val.GetKey(), val)
+		}
+
+		log.Printf("type:%d lru remove key:%s", s.cacheType, val.GetKey())
+		s.remove(val.GetKey())
+	}
 
 	//删除原有的
 	s.remove(v.GetKey())

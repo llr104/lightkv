@@ -32,10 +32,10 @@ type Cache struct{
 
 func NewCache() *Cache {
 	 c := Cache{
-	 	stringLRU:			 newLRU(kv.ValueData, nil),
-	 	mapLRU:				 newLRU(kv.MapData, nil),
-	 	listLRU:			 newLRU(kv.ListData, nil),
-	 	setLRU:				 newLRU(kv.SetData, nil),
+	 	stringLRU:			 newLRU(kv.ValueData, Conf.CacheStringSize),
+	 	mapLRU:				 newLRU(kv.MapData, Conf.CacheMapSize),
+	 	listLRU:			 newLRU(kv.ListData, Conf.CacheListSize),
+	 	setLRU:				 newLRU(kv.SetData, Conf.CacheSetSize),
 
 	 	persistentStringChan: make(chan kv.PersistentStringOp),
 	 	persistentMapChan:    make(chan kv.PersistentMapOp),

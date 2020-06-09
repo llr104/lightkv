@@ -19,9 +19,9 @@ type config struct {
 	ListDBPath          string
 	SetDBPath           string
 	RpcHost             string
-	ApiHost				string
+	ApiHost             string
 	CheckExpireInterval int
-	CacheValueSize      int
+	CacheStringSize     int
 	CacheMapSize        int
 	CacheListSize       int
 	CacheSetSize        int
@@ -55,10 +55,10 @@ func init() {
 			DefaultCheckExpireInterval = checkExpireInterval
 		}
 
-		if cacheValueSize, err := cfg.Section("").Key("cacheValueSize").Int(); err == nil{
-			Conf.CacheValueSize = cacheValueSize * (1024*1024)
+		if cacheStringSize, err := cfg.Section("").Key("cacheStringSize").Int(); err == nil{
+			Conf.CacheStringSize = cacheStringSize * (1024*1024)
 		}else{
-			Conf.CacheMapSize = 500 * (1024*1024) //500M
+			Conf.CacheStringSize = 500 * (1024*1024) //500M
 		}
 
 		if cacheMapSize, err := cfg.Section("").Key("cacheMapSize").Int(); err == nil{
@@ -80,7 +80,7 @@ func init() {
 		}
 	}
 
-	Conf.ValueDBPath = path.Join(DefaultDBPath, "kv")
+	Conf.ValueDBPath = path.Join(DefaultDBPath, "string")
 	Conf.MapDBPath = path.Join(DefaultDBPath, "map")
 	Conf.ListDBPath = path.Join(DefaultDBPath, "list")
 	Conf.SetDBPath = path.Join(DefaultDBPath, "set")

@@ -2,6 +2,7 @@
 package main
 
 import (
+	"fmt"
 	_ "fmt"
 	"github.com/llr104/lightkv/cache/kv"
 	"github.com/llr104/lightkv/server"
@@ -11,7 +12,7 @@ import (
 
 func main() {
 
-	testValue()
+	testString()
 	testMap()
 	testList()
 	testSet()
@@ -19,7 +20,7 @@ func main() {
 	time.Sleep(time.Second*60)
 }
 
-func testValue()  {
+func testString()  {
 	c := server.NewClient("127.0.0.1:9980")
 	c.Start()
 	defer c.Close()
@@ -178,7 +179,14 @@ func testMap()  {
 	c.HMPut("hmtest3", keys, vals, 0)
 	log.Printf("获取hmtest2 map 中k1元素:%s", c.HMGetMember("hmtest2", "k1"))
 
+	for i:=0; i<1000; i++{
+		keys := []string{"k1", "k2", "k3"}
+		vals := []string{"vddddddddddddddd1", "vgagdaga2", "v3gdsgaaaagagdag"}
 
+		k := fmt.Sprintf("lru%d", i)
+		//新增map
+		c.HMPut(k, keys, vals, 0)
+	}
 	time.Sleep(6*time.Second)
 
 }
