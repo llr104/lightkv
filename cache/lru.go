@@ -106,6 +106,12 @@ func (s *lru) Size() int{
 	return s.cacheSize
 }
 
+func (s *lru) Len() int{
+	s.rwMutex.RLock()
+	defer s.rwMutex.RUnlock()
+	return len(s.caches)
+}
+
 func (s* lru) Remove(key string) {
 	s.rwMutex.Lock()
 	defer s.rwMutex.Unlock()

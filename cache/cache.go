@@ -140,8 +140,9 @@ func (s *Cache) loadDB()  {
 		return nil
 	})
 
-	log.Printf("load db finish, %d Key-cacheValue ",
-		s.stringLRU.Size()+s.mapLRU.Size()+s.listLRU.Size()+s.setLRU.Size())
+	 size := s.stringLRU.Size()+s.mapLRU.Size()+s.listLRU.Size()+s.setLRU.Size()
+	 len := s.stringLRU.Len()+s.mapLRU.Len()+s.listLRU.Len()+s.setLRU.Len()
+	 log.Printf("load db finish, %d Key-cacheValue memory: %.2f kb", len, float32(size)/1024.0)
 }
 
 func (s*Cache) SetOnOP(opFunc func(kv.OpType, kv.ValueCache, kv.ValueCache)) {
